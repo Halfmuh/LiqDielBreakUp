@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="laplas_Solution.cu">
+      <Filter>calculation</Filter>
+    </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Interface">
+      <UniqueIdentifier>{b780a4d5-9fc0-44c0-a0ef-4793d329d680}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="calculation">
+      <UniqueIdentifier>{707888bb-2cdc-4ebf-b3dd-c7d9a43b51b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Interface\control">
+      <UniqueIdentifier>{bee6d5e8-49a6-41a2-8029-21bd5e38635c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Interface\visualise">
+      <UniqueIdentifier>{53da96b5-9f2d-4c09-9f10-bfcc8d1114a7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Control_window.cpp">
+      <Filter>Interface\control</Filter>
+    </ClCompile>
+    <ClCompile Include="Plot_Window.cpp">
+      <Filter>Interface\visualise</Filter>
+    </ClCompile>
+    <ClCompile Include="structure.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Control_window.h">
+      <Filter>Interface\control</Filter>
+    </ClInclude>
+    <ClInclude Include="Plot_Window.h">
+      <Filter>Interface\visualise</Filter>
+    </ClInclude>
+    <ClInclude Include="laplas_Solution.cuh">
+      <Filter>calculation</Filter>
+    </ClInclude>
+    <ClInclude Include="structure.h" />
+    <ClInclude Include="..\..\..\..\..\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\include\curand.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\..\..\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\lib\Win32\curand.lib" />
+  </ItemGroup>
+</Project>

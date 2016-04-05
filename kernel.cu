@@ -1,0 +1,241 @@
+#if HAVE_PTHREAD || defined(WIN32)
+#include "threads.h"
+#include "Control_window.h"
+#include "Plot_Window.h"
+#include "laplas_Solution.cuh"
+#include <iostream>
+#include <cuda_profiler_api.h>
+#include <fstream>
+//#include <cstdint>
+////оконца
+Control_Window *ctrlwnd;
+Plot_Window *pltwnd;
+Plot_Window *pltwnd2;
+////поток
+Fl_Thread fl_thread_draw;
+Fl_Thread fl_thread_calc;
+///массивы
+
+cuLaplas* lapls;
+strmr_strct* str_str;
+int* transfer_storage;
+double* output;
+
+
+
+static void start_cb(Fl_Widget *w,void* data);
+static void stop_cb(Fl_Widget *w,void* data);
+void thread_calc(void* p);///это основна€ функци€ работ€юща€ в потоке расчета
+void thread_draw(void* p);
+
+int main()
+{
+	int count = 0;
+	cudaGetDeviceCount(&count);
+	ctrlwnd=new Control_Window(200,400,start_cb,stop_cb,"ctrl") ;
+
+	((Fl_Window*)ctrlwnd)->show();
+	while(Fl::wait()>0){
+		if((Plot_Window*)Fl::thread_message()==pltwnd){
+			
+			if(pltwnd!=0){
+				Fl::lock();
+				printf("redraw called\n");
+				//for (int i=0;i<pltwnd->getGridSize()*pltwnd->getGridSize();i++)pltwnd->arr[i]=transfer_storage[i];
+				//for(int i=0;i<pltwnd->getGridSize();i++) for(int j=0;j<pltwnd->getGridSize();j++)
+				//	std::cout<<transfer_storage[i+j*pltwnd->getGridSize()]<<" ";
+				for(int i=0;i<pltwnd2->getGridSize();i++){
+					for(int j=0;j<pltwnd2->getGridSize();j++){
+					pltwnd2->arr[i+j*pltwnd->getGridSize()]=transfer_storage[i+j*pltwnd->getGridSize()];
+					}}
+				pltwnd->redraw();
+				pltwnd2->redraw();
+				Fl::unlock();
+			}
+		}
+		else if((cuLaplas*)Fl::thread_message()==lapls)
+			if(lapls!=0) lapls->errReport("error code %d",lapls->cudaStatus);
+	}
+	return cudaDeviceReset();
+}
+
+
+
+///////////To Do  разгрести эти callback'и
+void start_cb(Fl_Widget *w,void* data){
+	Control_Window* tmp =(Control_Window*)w->parent();
+
+	if(tmp->aftertasks & 2)
+	{
+		delete pltwnd;
+		tmp->aftertasks^=2;
+	}
+
+	if((tmp->calc_state) == 0)
+	{
+		tmp->calc_state =1;
+		///создадим оконце
+		pltwnd= new Plot_Window(800,800,tmp,"Plot");
+		pltwnd2= new Plot_Window(800,800,tmp,"Plot2");
+		///и заведм массивы
+		lapls=new cuLaplas(pltwnd->getGridSize(),pltwnd->z,100,NOFLOW);
+		str_str=new strmr_strct(lapls);
+		transfer_storage= new int[pltwnd->getGridSize()*pltwnd->getGridSize()];
+		if (lapls->cudaStatus != cudaSuccess) {
+			printf("cuda error!");
+		}
+		lapls->cpySlice(pltwnd->arr);
+		str_str->cpySlice(transfer_storage);
+		for(int i=0;i<pltwnd2->getGridSize();i++){
+		  for(int j=0;j<pltwnd2->getGridSize();j++){
+			  pltwnd2->arr[i+j*pltwnd->getGridSize()]=transfer_storage[i+j*pltwnd->getGridSize()];
+		  }
+		//  std::cout<<'\n';
+		}
+		Fl::lock();
+		fl_create_thread(fl_thread_calc, (Fl_Thread_Func*)thread_calc, lapls);
+		pltwnd->show();
+		pltwnd2->show();
+		Fl::unlock();
+		//lapls->cpySlice(pltwnd->arr);
+		  /// ((Fl_Window*)  pltwnd)->redraw();	  
+	}
+}
+//Ёта функци€ срабатывает при нажатии кнопки старт, провер€ет состо€ние расчета, создает поток рисовани€ и поток расчета
+
+void stop_cb(Fl_Widget *w,void* data){	
+		  Control_Window* tmp=(Control_Window*)data;
+		  if(tmp->calc_state & 1){
+			((Fl_Window*)pltwnd)->hide();
+			delete pltwnd;
+			tmp->calc_state^=1;
+			if(tmp->aftertasks & 1){
+				tmp->aftertasks^=1;
+				tmp->iin_cb( tmp->iin, data);
+			}
+		  }
+		  if(tmp->aftertasks & 2){
+			delete pltwnd;
+			delete lapls;
+			tmp->aftertasks ^=2;
+		  }
+} 
+//кнопка стоп и лучше eЄ не трогать
+
+void thread_calc(void* p){
+	cudaProfilerStart();
+	double eps=.01;
+	double relEps=.01;
+	char* niv_check=new char[ctrlwnd->getGridSize()];
+	char* relNiv_check=new char[ctrlwnd->getGridSize()];
+
+	for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[i]=0;
+	for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[i]=0;
+	std::fstream fstream_h_N;
+	int iterCounter=0;
+	printf("start\n");
+	//
+	/*for(int i=0;i<3000;i++)lapls->iteration(str_str,niv_check,eps);*/
+	//output=new double[401*401*401];
+	//FILE* pF=fopen("field","w+");
+	//for(int i=0;i<401*401*401;i++)output[i]=0;
+	//cudaMemcpy(output,lapls->dev_fi,sizeof(double)*401*401*401,cudaMemcpyDeviceToHost);
+
+	//for(int i=0;i<401*401*401;i++)fprintf(pF,"%16f\n",(float)output[i]);
+	//	fclose(pF);
+	//	std::fstream *fstream_h_N= new std::fstream;
+	//	fstream_h_N->precision(16);
+		//////output=new double[401*401*401];
+		//////std::ifstream fstream_field;
+		//////fstream_field.open("output/401/field");
+		//////for(int i=0;i<401*401*401;i++)fstream_field>>output[i];
+		//////cudaMemcpy(lapls->dev_fi,output,sizeof(double)*ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize(),
+		//////																				cudaMemcpyHostToDevice);
+		//////cudaMemcpy(lapls->dev_fi_old,output,sizeof(double)*ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize(),
+		//////																				cudaMemcpyHostToDevice);
+		//////lapls->cpySlice(pltwnd->arr);
+		//////str_str->cpySlice(transfer_storage);
+		//////fstream_field.close();
+
+		//////Fl::awake(pltwnd);
+
+		double k=0;
+		//////k=( output[  
+		//////		ctrlwnd->getGridSize()/2
+		//////		+ctrlwnd->getGridSize()  *(ctrlwnd->getGridSize()  /2)
+		//////		+ctrlwnd->getGridSize()  *ctrlwnd->getGridSize()  *(ctrlwnd->getGridSize()  /2)]
+		//////	-output[
+		//////		ctrlwnd->getGridSize()/2
+		//////		+ctrlwnd->getGridSize()  *(ctrlwnd->getGridSize()/2)
+		//////				+ctrlwnd->getGridSize()  *ctrlwnd->getGridSize()  *(2  +ctrlwnd->getGridSize()  /2)]
+		//////	)/2 *401;
+
+
+		//////delete[] output;
+		float globalLapTime=0;
+		int iterstep=10;
+	while(1){
+		for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[0]*=niv_check[i];
+		for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[0]*=relNiv_check[i];
+
+		printf("conv =%d\n",niv_check[0]);
+		printf("relConv =%d\n",relNiv_check[0]);
+		printf("iter =%d\n",iterCounter);
+	if(/*!niv_check[0]   &&*/ (ctrlwnd->calc_state==1)){
+		
+		float intervalTime=0;
+
+		for(int i=0;i<iterstep;i++,iterCounter++)lapls->iteration(str_str,niv_check,eps,&intervalTime);
+		globalLapTime+=intervalTime;
+		lapls->convergence(niv_check,eps);
+		lapls->convergence(relNiv_check,relEps);
+
+		for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[0]*=niv_check[i];
+		for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[0]*=relNiv_check[i];
+
+		if(niv_check[0]){
+			fstream_h_N.open("301timeDat.dat",std::fstream::app);
+			fstream_h_N<<eps<<'\t'<<iterCounter<<'\t'<<globalLapTime<<"\t abs\n";
+			eps*=0.1;
+
+			fstream_h_N.close();
+		}
+
+		if(relNiv_check[0]){
+			fstream_h_N.open("301timeDat.dat",std::fstream::app);
+			fstream_h_N<<relEps<<'\t'<<iterCounter<<'\t'<<globalLapTime<<"\t rel\n";
+			relEps*=0.1;
+			fstream_h_N.close();		
+		}
+		if(relNiv_check[0]&&niv_check[0]&&(iterstep<=100))			iterstep*=10;
+		//if(niv_check[0]&&relNiv_check[0]){
+		//str_str->cu_iterate(lapls->dev_fi);
+		//str_str->count_report(/*fstream_h_N,*/k);
+		lapls->cpySlice(pltwnd->arr);
+		str_str->cpySlice(transfer_storage);
+		//}
+
+
+		//Fl::lock();
+		//Fl::unlock();
+		
+		fstream_h_N.close();
+		Fl::awake(pltwnd);
+	}
+	else {
+		cudaProfilerStop();
+		cudaDeviceReset();
+		/*exit(0);*/
+		return;
+	}
+	}
+}
+///это основна€ функци€ работ€юща€ в потоке расчета
+
+#else
+#  include <FL/fl_ask.H>
+
+int main() {
+  fl_alert("Sorry, threading not supported on this platform!");
+}
+#endif
