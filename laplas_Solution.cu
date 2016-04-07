@@ -165,7 +165,7 @@ void cuLaplas::errReport(char* s, cudaError_t e){
 cuLaplas::cuLaplas(int _size,int z,int limit,BORDER_CONDITION bc){
 	///задаем чиселки
 	_grSz=_size;
-	_slc_z=z+1;
+	_slc_z=z;
 	dY=_grSz;
 	dZ=_grSz*_grSz;
 	///ограничили итерации
@@ -267,6 +267,7 @@ cudaError_t cuLaplas::iteration(void* str_str,char* epsilon_check,double eps,flo
 	cudaEvent_t start;
 	cudaEvent_t stop;
 	strmr_strct* a= (strmr_strct*)str_str;
+
 	static int current=0;
 	cudaEventCreate(&stop);
 	cudaEventCreate(&start);
@@ -375,6 +376,7 @@ __global__ void initStates(int* A){
 	A[i0]=200;
 
 }
+
 __global__ void edgeInitStruct(int*A,int xy_idx,int dZ){
 	int i0=xy_idx+(1+threadIdx.x)*dZ;
 	A[i0]=100;
@@ -390,6 +392,7 @@ __device__ int d_count_0_30_true;
 __device__ int d_count_31_60_true;
 __device__ int d_count_calls;
 __device__ int d_count_passed_checks[2];
+
 __device__ void checkStructure(float rand_val,double* field,int* states,
 							   int dY,int dZ,int id_to)
 {
@@ -467,6 +470,8 @@ __device__ void checkStructure(float rand_val,double* field,int* states,
 								   }
 								   /*return 0;*/
 }
+
+
 __global__ void gr_iterate(int* states, double* field,float* uniformrand){
 	d_count_200_true=0;
 	d_count_101_true=0;

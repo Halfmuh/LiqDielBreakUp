@@ -33,22 +33,22 @@ void thread_draw(void* p);
 ///// length - array size
 bool saveArray( const double* pdata, size_t length, const std::string& file_path )
 {
-    std::ofstream os(file_path.c_str(), std::ios::binary | std::ios::out);
-    if ( !os.is_open() )
-    	return false;
-    os.write(reinterpret_cast<const char*>(pdata), std::streamsize(length*sizeof(double)));
-    os.close();
-    return true;
+	std::ofstream os(file_path.c_str(), std::ios::binary | std::ios::out);
+	if ( !os.is_open() )
+		return false;
+	os.write(reinterpret_cast<const char*>(pdata), std::streamsize(length*sizeof(double)));
+	os.close();
+	return true;
 }
 
 bool loadArray( double* pdata, size_t length, const std::string& file_path)
 {
-    std::ifstream is(file_path.c_str(), std::ios::binary | std::ios::in);
-    if ( !is.is_open() )
-    	return false;
-    is.read(reinterpret_cast<char*>(pdata), std::streamsize(length*sizeof(double)));
-    is.close();
-    return true;
+	std::ifstream is(file_path.c_str(), std::ios::binary | std::ios::in);
+	if ( !is.is_open() )
+		return false;
+	is.read(reinterpret_cast<char*>(pdata), std::streamsize(length*sizeof(double)));
+	is.close();
+	return true;
 }
 
 int main()
@@ -147,8 +147,8 @@ void stop_cb(Fl_Widget *w,void* data){
 
 void thread_calc(void* p){
 	cudaProfilerStart();
-	double eps=.01;
-	double relEps=.01;
+	double eps=.000001;
+	double relEps=.000001;
 	char* niv_check=new char[ctrlwnd->getGridSize()];
 	char* relNiv_check=new char[ctrlwnd->getGridSize()];
 	int nCube=ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize();
@@ -160,18 +160,18 @@ void thread_calc(void* p){
 	printf("start\n");
 	//
 	float intervalTime=0;
-	for(int i=0;i<18000;i++)lapls->iteration(str_str,niv_check,eps,&intervalTime);
+	for(iterCounter;iterCounter<70000;iterCounter++)lapls->iteration(str_str,niv_check,eps,&intervalTime);
 
 	//FILE* pF=fopen("field","w+");
 	//for(int i=0;i<401*401*401;i++)output[i]=0;
 	cudaMemcpy(output,lapls->dev_fi,sizeof(double)*nCube,cudaMemcpyDeviceToHost);
 	std::stringstream fileNameStream;
-	fileNameStream << "C:/Users/student1/Desktop/FOLDER_0/New folder/fieldArray.dat" << nCube;
+	fileNameStream << "C:/Users/student1/Desktop/FOLDER_0/New folder/fieldArray" <<ctrlwnd->getGridSize()<<"eps"<<eps <<".dat";
 	std::string fileName =fileNameStream.str();
 	saveArray(output,nCube, fileName);
 	//double* outputCheck=new double[nCube];
 	//loadArray(outputCheck,nCube, fileName);
-
+	delete[] output;
 	//for(int i=0;i<nCube;i++)if(output[i]!=outputCheck[i])printf("error");
 	//	fclose(pF);
 	//	std::fstream *fstream_h_N= new std::fstream;
@@ -200,7 +200,7 @@ void thread_calc(void* p){
 	//////		+ctrlwnd->getGridSize()  *(ctrlwnd->getGridSize()/2)
 	//////				+ctrlwnd->getGridSize()  *ctrlwnd->getGridSize()  *(2  +ctrlwnd->getGridSize()  /2)]
 	//////	)/2 *401;
-	
+
 
 	//////delete[] output;
 	float globalLapTime=0;
@@ -224,14 +224,12 @@ void thread_calc(void* p){
 			for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[0]*=niv_check[i];
 			for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[0]*=relNiv_check[i];
 
-
-			if(relNiv_check[0]&&niv_check[0]&&(iterstep<=100))			iterstep*=10;
-			//if(niv_check[0]&&relNiv_check[0]){
-			//str_str->cu_iterate(lapls->dev_fi);
-			//str_str->count_report(/*fstream_h_N,*/k);
-			lapls->cpySlice(pltwnd->arr);
-			str_str->cpySlice(transfer_storage);
-			//}
+			if(niv_check[0]&&relNiv_check[0]){
+				str_str->cu_iterate(lapls->dev_fi);
+				str_str->count_report(/*fstream_h_N,*/k);
+				lapls->cpySlice(pltwnd->arr);
+				str_str->cpySlice(transfer_storage);
+			}
 
 
 			//Fl::lock();

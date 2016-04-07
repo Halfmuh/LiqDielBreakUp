@@ -49,8 +49,8 @@ public:
 	char* dev_niv_checks;
 	char* relDev_niv_checks;
 	//double* dev_sgm;
-	float* devQ;
-	float* devQOld;
+	//float* devQ;
+	//float* devQOld;
 	cudaError_t cudaStatus;
 	int getTotal(){
 		return _iteration_total;

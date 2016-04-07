@@ -4,7 +4,7 @@
 Control_Window::Control_Window(int W,int H,void(*sta)(Fl_Widget*,void*), void(*sto)(Fl_Widget*,void*),const char *L):Fl_Window(W,H,L){
 	calc_state=0;
 	aftertasks=0;
-	_grSz=401;
+	_grSz=448;
 	begin();
 	callback(ctrl_cb,NULL);
 	//iin = new Fl_Int_Input(100,10,100,30,"Grid side");
