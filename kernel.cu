@@ -98,8 +98,8 @@ void start_cb(Fl_Widget *w,void* data){
 	{
 		tmp->calc_state =1;
 		///создадим оконце
-		pltwnd= new Plot_Window(800,800,tmp,"Plot");
-		pltwnd2= new Plot_Window(800,800,tmp,"Plot2");
+		pltwnd= new Plot_Window(896,896,tmp,"Plot");
+		pltwnd2= new Plot_Window(896,896,tmp,"Plot2");
 		///и заведм массивы
 		lapls=new cuLaplas(pltwnd->getGridSize(),pltwnd->z,100,NOFLOW);
 		str_str=new strmr_strct(lapls);

@@ -50,12 +50,12 @@ __global__ void laplasKernel(const double* fcu, double* fncu/*, double*sig,const
 
 }
 //__global__ void chargeKernel(
-	__global__ void state_field_update(int* d_states,double* d_field_target){
-		int dY=gridDim.x+2;
-		int dZ=(gridDim.x+2)*(gridDim.y+2);
-		int i0;
-		i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
-		if((d_states[i0]<30)&&(d_states[i0]>0)) d_field_target[i0]=1;
+__global__ void state_field_update(int* d_states,double* d_field_target){
+	int dY=gridDim.x+2;
+	int dZ=(gridDim.x+2)*(gridDim.y+2);
+	int i0;
+	i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
+	if((d_states[i0]<30)&&(d_states[i0]>0)) d_field_target[i0]=1;
 }
 
 __global__ void yx_Borders(double* target){
@@ -190,8 +190,8 @@ cuLaplas::cuLaplas(int _size,int z,int limit,BORDER_CONDITION bc){
 	cudaStatus = cudaMalloc((void**)&relDev_niv_checks, _size *_size*_size* sizeof(char));
 	cudaStatus = cudaMalloc((void**)&dev_fi_old, _size *_size*_size* sizeof(double));
 	cudaStatus = cudaMalloc((void**)&dev_fi_slice, _size *_size* sizeof(double));
-	cudaStatus = cudaMalloc((void**)&devQ,_size*_size*_size*(sizeof(double)));
-	cudaStatus = cudaMalloc((void**)&devQOld,_size*_size*_size*(sizeof(double)));
+	//cudaStatus = cudaMalloc((void**)&devQ,_size*_size*_size*(sizeof(double)));
+	//cudaStatus = cudaMalloc((void**)&devQOld,_size*_size*_size*(sizeof(double)));
 	////////////////////////////////////////////////////////////////////////////////
 
 	////зануляем массивы
@@ -199,11 +199,11 @@ cuLaplas::cuLaplas(int _size,int z,int limit,BORDER_CONDITION bc){
 
 	cudaStatus=cudaMemset (dev_fi,0,sizeof(double)*_size*_size*_size);
 	setDouble2
-		<<<dim3(_size,1,1),dim3(_size,_size,1)>>>  (dev_fi,0.2);
+		<<<dim3(_size,1,1),dim3(_size,_size,1)>>>  (dev_fi,0.4);
 	///////////////////////////////////
 	cudaStatus=cudaMemset (dev_fi_old,0,sizeof(double)*_size*_size*_size);
 	setDouble2
-		<<<dim3(_size,1,1),dim3(_size,_size,1)>>>  (dev_fi_old,0.2);
+		<<<dim3(_size,1,1),dim3(_size,_size,1)>>>  (dev_fi_old,0.4);
 	// Check for any errors
 	//////////////////////////////////
 
@@ -211,11 +211,11 @@ cuLaplas::cuLaplas(int _size,int z,int limit,BORDER_CONDITION bc){
 	cudaStatus=cudaMemset (dev_fi_slice,0,sizeof(double)* _size * _size);
 	cudaStatus=cudaMemset (dev_niv_checks,0,sizeof(char)* _size * _size*_size);
 	cudaStatus=cudaMemset (relDev_niv_checks,0,sizeof(char)* _size * _size*_size);
-	cudaStatus=cudaMemset (devQ,0,sizeof(float)*_size*_size*_size);
-	cudaStatus=cudaMemset (devQOld,0,sizeof(float)*_size*_size*_size);
+	//cudaStatus=cudaMemset (devQ,0,sizeof(float)*_size*_size*_size);
+	//cudaStatus=cudaMemset (devQOld,0,sizeof(float)*_size*_size*_size);
 	//setDouble1<<<1,dim3(_size,_size,1)>>>(dev_fi_slice,0);
-	//setDouble2<<<_size,dim3(_size,_size,1)>>>(dev_fi,0);
-	//setDouble2<<<_size,dim3(_size,_size,1)>>>(dev_fi_old,0);
+	//setDouble2<<<_size,dim3(_size,_size,1)>>>(dev_fi,0.4);
+	//setDouble2<<<_size,dim3(_size,_size,1)>>>(dev_fi_old,0.4);
 	cudaStatus=_neiman_init(dev_fi_old);
 	cudaStatus=_neiman_init(dev_fi);
 	//////////////////////////////////////////////////////////////////////////////////	
@@ -240,7 +240,7 @@ cudaError_t cuLaplas::_neiman_noflow_Border(double* target,int current){
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 
-	edge_update<<<1,_grSz/2>>>(target, _grSz*_grSz/2, _grSz*_grSz);
+	edge_update<<<1,_grSz/2>>>(target, _grSz/2+_grSz*_grSz/2, _grSz*_grSz);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 	return cudaStatus;
@@ -255,7 +255,7 @@ cudaError_t cuLaplas::_neiman_init(double* target){
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 	///////////
-	edge_update<<<1,_grSz/2>>>(target, _grSz*_grSz/2, _grSz*_grSz);
+	edge_update<<<1,_grSz/2>>>(target, _grSz/2+_grSz*_grSz/2, _grSz*_grSz);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 	/////////
@@ -348,7 +348,7 @@ strmr_strct::strmr_strct(cuLaplas* parent){
 
 	edgeInitStruct
 		<<<1,_size/2 -1>>>
-		(_states, _size*_size/2, _size*_size);
+		(_states, _size/2+_size*_size/2, _size*_size);
 
 	curandCreateGenerator(&gen, 
 		CURAND_RNG_PSEUDO_DEFAULT);
@@ -396,79 +396,79 @@ __device__ int d_count_passed_checks[2];
 __device__ void checkStructure(float rand_val,double* field,int* states,
 							   int dY,int dZ,int id_to)
 {
-								   if	(states[id_to]>61){
-									   if	(states[id_to]<=87){
-										   /*atomicAdd(&d_count_31_60_true, 1);*/
-										   int i=((states[id_to]-1)%9)%3-1;
-										   int j=((states[id_to]-1)%9)/3-1;
-										   int k=(states[id_to]-1)/9 -1;
-										   int id_from =id_to-i-j*dY-k*dZ;
-										   states[id_from]-=30;
-										   states[id_to]-=30;
-										   //atomicAdd(&d_count_31_60_true, 1);
-									   }
-								   }
-								   if(states[id_to]==200 ){
-									   /*atomicAdd(&d_count_200_true, 1);*/
-									   for (int i=-1;i<2;i++){
-										   for(int j=-1;j<2;j++){
-											   for(int k=-1;k<2;k++){
-												   int	id_from;
-												   id_from=id_to+i+j*dY+k*dZ;
-												   //if( states[id_from]<30){
-												   //	if( states[id_from]>0){
-												   //	if(!(i==0 && j==0 && k==0)){
-												   //		__shared__ double randomized_field;
-												   //		randomized_field=(field[id_from]-field[id_to])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
-												   //		if (((i=1)|(i=-1))^
-												   //			((j=1)|(j=-1))^
-												   //			((k=1)|(k=-1)))
-												   //		{   
-												   //			if(1/*30.0/dY < randomized_field*/)						
-												   //			states[id_to]=1+(i+1)+(j+1)*3+(k+1)*9;
-												   //			return 1;
-												   //		}
-												   //		/*else {
-												   //			if(30.0/dY < randomized_field)						
-												   //			states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
-												   //			
-												   //			return 1;
-												   //		}*/
-												   //	}	}
-												   //	}
+	if	(states[id_to]>61){
+		if	(states[id_to]<=87){
+			/*atomicAdd(&d_count_31_60_true, 1);*/
+			int i=((states[id_to]-1)%9)%3-1;
+			int j=((states[id_to]-1)%9)/3-1;
+			int k=(states[id_to]-1)/9 -1;
+			int id_from =id_to-i-j*dY-k*dZ;
+			states[id_from]-=30;
+			states[id_to]-=30;
+			//atomicAdd(&d_count_31_60_true, 1);
+		}
+	}
+	if(states[id_to]==200 ){
+		/*atomicAdd(&d_count_200_true, 1);*/
+		for (int i=-1;i<2;i++){
+			for(int j=-1;j<2;j++){
+				for(int k=-1;k<2;k++){
+					int	id_from;
+					id_from=id_to+i+j*dY+k*dZ;
+					//if( states[id_from]<30){
+					//	if( states[id_from]>0){
+					//	if(!(i==0 && j==0 && k==0)){
+					//		__shared__ double randomized_field;
+					//		randomized_field=(field[id_from]-field[id_to])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
+					//		if (((i=1)|(i=-1))^
+					//			((j=1)|(j=-1))^
+					//			((k=1)|(k=-1)))
+					//		{   
+					//			if(1/*30.0/dY < randomized_field*/)						
+					//			states[id_to]=1+(i+1)+(j+1)*3+(k+1)*9;
+					//			return 1;
+					//		}
+					//		/*else {
+					//			if(30.0/dY < randomized_field)						
+					//			states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
+					//			
+					//			return 1;
+					//		}*/
+					//	}	}
+					//	}
 
-												   if( states[id_from]==101 || ((states[id_from]<60) &&(states[id_from]>0)))
-												   {
-													   /*atomicAdd(&d_count_101_true, 1);*/
-													   if(!(i==0 && j==0 && k==0)){
-														   double randomized_field;
-														   randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
-														   if (((i==1)||(i==-1))^
-															   ((j==1)||(j==-1))^
-															   ((k==1)||(k==-1))){   
-																   if(/*1000.0/dY*/0.90 < randomized_field){	
-																	   if( (states[id_from]<60) &&(states[id_from]>30))
-																	   {
-																		   states[id_from]-=30;
-																	   }
-																	   states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
-																	   //atomicAdd(&d_count_passed_checks[0], 1);
-																   }
-														   }
-														   else {
-															   if(/*1.0/dY */0.90< randomized_field){						
-																   states[id_to]=61+(i+1)+(j+1)*3+(k+1)*9;
-																   //atomicAdd(&d_count_passed_checks[0], 1);
-															   }
-														   }
+					if( states[id_from]==101 || ((states[id_from]<60) &&(states[id_from]>0)))
+					{
+						/*atomicAdd(&d_count_101_true, 1);*/
+						if(!(i==0 && j==0 && k==0)){
+							double randomized_field;
+							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
+							if (((i==1)||(i==-1))^
+								((j==1)||(j==-1))^
+								((k==1)||(k==-1))){   
+									if(/*1000.0/dY*/0.90 < randomized_field){	
+										if( (states[id_from]<60) &&(states[id_from]>30))
+										{
+											states[id_from]-=30;
+										}
+										states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
+										//atomicAdd(&d_count_passed_checks[0], 1);
+									}
+							}
+							else {
+								if(/*1.0/dY */0.90< randomized_field){						
+									states[id_to]=61+(i+1)+(j+1)*3+(k+1)*9;
+									//atomicAdd(&d_count_passed_checks[0], 1);
+								}
+							}
 
-													   }
-												   }
-											   }
-										   }
-									   }
-								   }
-								   /*return 0;*/
+						}
+					}
+				}
+			}
+		}
+	}
+	/*return 0;*/
 }
 
 

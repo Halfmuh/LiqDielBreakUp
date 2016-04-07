@@ -36,7 +36,7 @@ void Plot_Window::draw(){
 	int sz=getGridSize();
 	static int n=0;
 	int x_max=w();int y_max=h();
-	int dy=y_max/sz +1;int dx=x_max/sz +1;
+	int dy=y_max/sz ;int dx=x_max/sz ;
 	  int dx2=(dx>>1);int dy2=(dy>>1);
 	  int y=0;int j;
 	  int x=-dx2;int i;
