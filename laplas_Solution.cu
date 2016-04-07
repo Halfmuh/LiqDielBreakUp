@@ -2,10 +2,10 @@
 #include <FL/Fl.H>
 #include <fstream>
 __global__ void setDouble1(double* target,double val){
-		target[threadIdx.x+threadIdx.y*blockDim.x]=val;
+	target[threadIdx.x+threadIdx.y*blockDim.x]=val;
 }
 __global__ void setDouble2(double* target,double val){
-		target[threadIdx.x+threadIdx.y*blockDim.x+blockIdx.x*blockDim.x*blockDim.y]=/*(double)(threadIdx.x+threadIdx.y*blockDim.x+blockIdx.x*blockDim.x*blockDim.y)/(10*10*10)*/val;
+	target[threadIdx.x+threadIdx.y*blockDim.x+blockIdx.x*blockDim.x*blockDim.y]=/*(double)(threadIdx.x+threadIdx.y*blockDim.x+blockIdx.x*blockDim.x*blockDim.y)/(10*10*10)*/val;
 }
 
 ///срез в кубической геометрии
@@ -15,7 +15,7 @@ __global__ void sliceKernel(double* A,double*result,const int z){
 
 	int i=threadIdx.x+blockIdx.x*dZ;
 	double a=A[i+z*dY];
-	
+
 	result[threadIdx.x+blockIdx.x*dY]=a;
 }
 
@@ -23,22 +23,22 @@ __global__ void laplasKernel(const double* fcu, double* fncu/*, double*sig,const
 	int dY=gridDim.x+2;
 	int dZ=(gridDim.x+2)*(gridDim.y+2);
 	double sig=0;
-	 int i0;
+	int i0;
 	i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
-	 int pts;
+	int pts;
 	//pts=4*M_PI;
-	 double upper_part;
+	double upper_part;
 	upper_part=0;
-	 double lower_part;
+	double lower_part;
 	lower_part=0;
-	// int i,j,k;
-	//for (i=-1;i<2;i++) {
-	//	for(j=-1;j<2;j++){
-	//		for(k=-1;k<2;k++){
-	//			if(!((i==0)&&(j==0)&&(k==0))){
-	//				upper_part+=fcu[i0+i+j*dY+k*dZ]/sqrt(1.0*(i*i+j*j+k*k));
-	//				lower_part+=1.0/sqrt(1.0*(i*i+j*j+k*k));
-	//			}
+	//int i,j,k;
+	//for (i=-1;i<2;i+=2) {
+	//	for(j=-1;j<2;j+=2){
+	//		for(k=-1;k<2;k+=2){
+
+	//			upper_part+=fcu[i0+i+j*dY+k*dZ]/sqrt(1.0*(i*i+j*j+k*k));
+	//			lower_part+=1.0/sqrt(1.0*(i*i+j*j+k*k));
+
 	//		}
 	//	}
 	//}
@@ -47,23 +47,24 @@ __global__ void laplasKernel(const double* fcu, double* fncu/*, double*sig,const
 	upper_part+=1.0/6.0 * (fcu[i0+1]+fcu[i0-1]+fcu[i0+dY]+fcu[i0-dY]+fcu[i0+dZ]+fcu[i0-dZ]);
 	lower_part+=1;
 	fncu[i0]=upper_part/lower_part;
-	
+
 }
-__global__ void state_field_update(int* d_states,double* d_field_target){
-	int dY=gridDim.x+2;
-	int dZ=(gridDim.x+2)*(gridDim.y+2);
-	int i0;
-	i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
-	if((d_states[i0]<30)&&(d_states[i0]>0)) d_field_target[i0]=1;
+//__global__ void chargeKernel(
+	__global__ void state_field_update(int* d_states,double* d_field_target){
+		int dY=gridDim.x+2;
+		int dZ=(gridDim.x+2)*(gridDim.y+2);
+		int i0;
+		i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
+		if((d_states[i0]<30)&&(d_states[i0]>0)) d_field_target[i0]=1;
 }
 
 __global__ void yx_Borders(double* target){
 	int dY=gridDim.x;
 	int dZ=gridDim.x*blockDim.x;
-	
+
 	int idx=threadIdx.x+(blockIdx.x*dY);
 	target[idx]=1;
-	
+
 	idx=threadIdx.x+(blockIdx.x*dY)+dZ*(dY-1);
 	target[idx]=0;
 }
@@ -74,27 +75,27 @@ __global__ void update_border(double* target){
 	int dZ=gridDim.x*blockDim.x;
 
 	int idx=threadIdx.x+blockIdx.x*dZ; ///index of  y=const border
-		target[idx]=target[idx+dY];/*
-		 (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
-		__syncthreads();
+	target[idx]=target[idx+dY];/*
+							   (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
+	__syncthreads();
 	idx+=dZ-dY;
-		target[idx]=target[idx-dY];/*
-		 (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
-		__syncthreads();
+	target[idx]=target[idx-dY];/*
+							   (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
+	__syncthreads();
 	idx=threadIdx.x*dY+blockIdx.x*dZ;//x=const (0) border
-		target[idx]=target[idx+1];/*
-		 (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
-		__syncthreads();
+	target[idx]=target[idx+1];/*
+							  (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
+	__syncthreads();
 	idx+=dY-1;// vtoraya x=const granica
-		target[idx]=target[idx-1];/*
-		 (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
-		__syncthreads();
+	target[idx]=target[idx-1];/*
+							  (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
+	__syncthreads();
 
 }
 
 __global__ void edge_update(double* target,int yx_idx,int dZ){
 	int idx=yx_idx+threadIdx.x*dZ;   ///lesvie, stir'ek, igla ,elektrod
-		target[idx]=1;
+	target[idx]=1;
 }
 
 //// ABSOLUTE CONVERGENCE
@@ -113,7 +114,7 @@ __global__ void niv_stage_dim2(char* result){
 	int dZ=gridDim.x*blockDim.x;
 	int idx=threadIdx.x+blockIdx.x*dY;
 	for(int i=0;i<blockDim.x;i++)
-	result[idx]=(result[idx]&&result[idx+i*dZ]);
+		result[idx]=(result[idx]&&result[idx+i*dZ]);
 	//atomicAdd(&niv_counter2,(int)result[idx]);
 }
 __device__ int niv_counter3;
@@ -122,7 +123,7 @@ __global__ void niv_stage_final(char*result){
 	int dY=gridDim.x;
 	int idx=blockIdx.x;
 	for(int i=0;i<blockDim.x;i++)
-	result[idx]=(result[idx]&&result[idx+i*dY]);
+		result[idx]=(result[idx]&&result[idx+i*dY]);
 	//atomicAdd(&niv_counter3, (int) result[idx]);
 }
 
@@ -142,7 +143,7 @@ __global__ void relNivStageDim2(char* result){
 	int dZ=gridDim.x*blockDim.x;
 	int idx=threadIdx.x+blockIdx.x*dY;
 	for(int i=0;i<blockDim.x;i++)
-	result[idx]=(result[idx]&&result[idx+i*dZ]);
+		result[idx]=(result[idx]&&result[idx+i*dZ]);
 	//atomicAdd(&niv_counter2,(int)result[idx]);
 }
 
@@ -151,7 +152,7 @@ __global__ void relNivStageFinal(char*result){
 	int dY=gridDim.x;
 	int idx=blockIdx.x;
 	for(int i=0;i<blockDim.x;i++)
-	result[idx]=(result[idx]&&result[idx+i*dY]);
+		result[idx]=(result[idx]&&result[idx+i*dY]);
 	//atomicAdd(&niv_counter3, (int) result[idx]);
 }
 
@@ -176,24 +177,26 @@ cuLaplas::cuLaplas(int _size,int z,int limit,BORDER_CONDITION bc){
 	/*setBC(bc);*/
 	errorsF= fopen("errlog.txt","w");
 	///выбрали девайс
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(errorsF, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        //goto Error;
+	cudaStatus = cudaSetDevice(0);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(errorsF, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+		//goto Error;
 		return;
 	}
-    // Allocate GPU buffers()    .
+	// Allocate GPU buffers()    .
 	/////////////////////////////////////////////////////////////////////////////
-    cudaStatus = cudaMalloc((void**)&dev_fi, _size *_size*_size* sizeof(double));
+	cudaStatus = cudaMalloc((void**)&dev_fi, _size *_size*_size* sizeof(double));
 	cudaStatus = cudaMalloc((void**)&dev_niv_checks, _size *_size*_size* sizeof(char));
 	cudaStatus = cudaMalloc((void**)&relDev_niv_checks, _size *_size*_size* sizeof(char));
 	cudaStatus = cudaMalloc((void**)&dev_fi_old, _size *_size*_size* sizeof(double));
-    cudaStatus = cudaMalloc((void**)&dev_fi_slice, _size *_size* sizeof(double));
+	cudaStatus = cudaMalloc((void**)&dev_fi_slice, _size *_size* sizeof(double));
+	cudaStatus = cudaMalloc((void**)&devQ,_size*_size*_size*(sizeof(double)));
+	cudaStatus = cudaMalloc((void**)&devQOld,_size*_size*_size*(sizeof(double)));
 	////////////////////////////////////////////////////////////////////////////////
 
 	////зануляем массивы
 	////////////////////////////////////////////////////////////////////////////////
-	
+
 	cudaStatus=cudaMemset (dev_fi,0,sizeof(double)*_size*_size*_size);
 	setDouble2
 		<<<dim3(_size,1,1),dim3(_size,_size,1)>>>  (dev_fi,0.2);
@@ -201,13 +204,15 @@ cuLaplas::cuLaplas(int _size,int z,int limit,BORDER_CONDITION bc){
 	cudaStatus=cudaMemset (dev_fi_old,0,sizeof(double)*_size*_size*_size);
 	setDouble2
 		<<<dim3(_size,1,1),dim3(_size,_size,1)>>>  (dev_fi_old,0.2);
-    // Check for any errors
+	// Check for any errors
 	//////////////////////////////////
 
-    
+
 	cudaStatus=cudaMemset (dev_fi_slice,0,sizeof(double)* _size * _size);
 	cudaStatus=cudaMemset (dev_niv_checks,0,sizeof(char)* _size * _size*_size);
 	cudaStatus=cudaMemset (relDev_niv_checks,0,sizeof(char)* _size * _size*_size);
+	cudaStatus=cudaMemset (devQ,0,sizeof(float)*_size*_size*_size);
+	cudaStatus=cudaMemset (devQOld,0,sizeof(float)*_size*_size*_size);
 	//setDouble1<<<1,dim3(_size,_size,1)>>>(dev_fi_slice,0);
 	//setDouble2<<<_size,dim3(_size,_size,1)>>>(dev_fi,0);
 	//setDouble2<<<_size,dim3(_size,_size,1)>>>(dev_fi_old,0);
@@ -219,18 +224,18 @@ cuLaplas::cuLaplas(int _size,int z,int limit,BORDER_CONDITION bc){
 ///срез хост
 cudaError_t cuLaplas::cpySlice(double* host_target){
 	sliceKernel<<<_grSz,_grSz>>>(dev_fi_old,dev_fi_slice,_slc_z);
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
+	// Check for any errors launching the kernel
+	cudaStatus = cudaGetLastError();
 	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
+	// any errors encountered during the launch.
 
 	cudaStatus = cudaDeviceSynchronize();
 	cudaStatus = cudaMemcpy(host_target, dev_fi_slice, _grSz *_grSz* sizeof(double), cudaMemcpyDeviceToHost);
 	return cudaStatus;
-	
+
 }
 cudaError_t cuLaplas::_neiman_noflow_Border(double* target,int current){
-	
+
 	update_border<<<_grSz,_grSz>>>(target);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
@@ -241,20 +246,20 @@ cudaError_t cuLaplas::_neiman_noflow_Border(double* target,int current){
 	return cudaStatus;
 }
 cudaError_t cuLaplas::_neiman_init(double* target){
-		//////////
-		yx_Borders<<<_grSz,_grSz>>>(target);
-		cudaStatus=cudaGetLastError();
-		cudaStatus=cudaDeviceSynchronize();
-		/////////
-		update_border<<<_grSz,_grSz>>>(target);
-		cudaStatus=cudaGetLastError();
-		cudaStatus=cudaDeviceSynchronize();
-		///////////
-		edge_update<<<1,_grSz/2>>>(target, _grSz*_grSz/2, _grSz*_grSz);
-		cudaStatus=cudaGetLastError();
-		cudaStatus=cudaDeviceSynchronize();
-		/////////
-		return cudaStatus;
+	//////////
+	yx_Borders<<<_grSz,_grSz>>>(target);
+	cudaStatus=cudaGetLastError();
+	cudaStatus=cudaDeviceSynchronize();
+	/////////
+	update_border<<<_grSz,_grSz>>>(target);
+	cudaStatus=cudaGetLastError();
+	cudaStatus=cudaDeviceSynchronize();
+	///////////
+	edge_update<<<1,_grSz/2>>>(target, _grSz*_grSz/2, _grSz*_grSz);
+	cudaStatus=cudaGetLastError();
+	cudaStatus=cudaDeviceSynchronize();
+	/////////
+	return cudaStatus;
 }
 cudaError_t cuLaplas::iteration(void* str_str,char* epsilon_check,double eps,float* time){
 
@@ -343,7 +348,7 @@ strmr_strct::strmr_strct(cuLaplas* parent){
 	edgeInitStruct
 		<<<1,_size/2 -1>>>
 		(_states, _size*_size/2, _size*_size);
-		
+
 	curandCreateGenerator(&gen, 
 		CURAND_RNG_PSEUDO_DEFAULT);
 }
@@ -353,22 +358,22 @@ strmr_strct::strmr_strct(cuLaplas* parent){
 //}
 cudaError_t strmr_strct::cpySlice(int* host_target){
 	sliceKernel_int<<<_size,_size>>>(_states,dev_slice,_slc_z);
-    // Check for any errors launching the kernel
-    /*cudaStatus = cudaGetLastError();*/
+	// Check for any errors launching the kernel
+	/*cudaStatus = cudaGetLastError();*/
 	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
+	// any errors encountered during the launch.
 
 	/*cudaStatus = */cudaDeviceSynchronize();
 	/*cudaStatus = */cudaMemcpy(host_target, dev_slice, _size *_size* sizeof(int), cudaMemcpyDeviceToHost);
 	return cudaSuccess;
-	
+
 }
 __global__ void initStates(int* A){
 	int dY=gridDim.x+2;
 	int dZ=(gridDim.x+2)*(gridDim.y+2);
 	int i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
 	A[i0]=200;
-	
+
 }
 __global__ void edgeInitStruct(int*A,int xy_idx,int dZ){
 	int i0=xy_idx+(1+threadIdx.x)*dZ;
@@ -386,98 +391,97 @@ __device__ int d_count_31_60_true;
 __device__ int d_count_calls;
 __device__ int d_count_passed_checks[2];
 __device__ void checkStructure(float rand_val,double* field,int* states,
-							  int dY,int dZ,int id_to){
-	if	(states[id_to]>31){
-		if	(states[id_to]<=57){
-			/*atomicAdd(&d_count_31_60_true, 1);*/
-			states[id_to]-=30;
-			/*return 1;*/
-			//atomicAdd(&d_count_31_60_true, 1);
-		}
-	}
-	if(states[id_to]==200 ){
-		/*atomicAdd(&d_count_200_true, 1);*/
-		for (int i=-1;i<2;i++){
-			for(int j=-1;j<2;j++){
-				for(int k=-1;k<2;k++){
-					 int	id_from;
-						id_from=id_to+i+j*dY+k*dZ;
-					//if( states[id_from]<30){
-					//	if( states[id_from]>0){
-					//	if(!(i==0 && j==0 && k==0)){
-					//		__shared__ double randomized_field;
-					//		randomized_field=(field[id_from]-field[id_to])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
-					//		if (((i=1)|(i=-1))^
-					//			((j=1)|(j=-1))^
-					//			((k=1)|(k=-1)))
-					//		{   
-					//			if(1/*30.0/dY < randomized_field*/)						
-					//			states[id_to]=1+(i+1)+(j+1)*3+(k+1)*9;
-					//			return 1;
-					//		}
-					//		/*else {
-					//			if(30.0/dY < randomized_field)						
-					//			states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
-					//			
-					//			return 1;
-					//		}*/
-					//	}	}
-					//	}
-					
-						if( states[id_from]==101 || ((states[id_from]<30) &&(states[id_from]>0))){
-							/*atomicAdd(&d_count_101_true, 1);*/
-							if(!(i==0 && j==0 && k==0)){
-							 double randomized_field;
-							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
-							if (((i==1)||(i==-1))^
-								((j==1)||(j==-1))^
-								((k==1)||(k==-1))){   
-								if(/*1000.0/dY*/0.90 < randomized_field){						
-									states[id_to]=1+(i+1)+(j+1)*3+(k+1)*9;
-									atomicAdd(&d_count_passed_checks[0], 1);
-								}
-								}
-							else {
-								if(/*1.0/dY */0.90< randomized_field){						
-									states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
-									atomicAdd(&d_count_passed_checks[0], 1);
-								}
-							}
-							
-							}
-						}
-				}
-			}
-		}
-	}
-	/*return 0;*/
+							   int dY,int dZ,int id_to)
+{
+								   if	(states[id_to]>61){
+									   if	(states[id_to]<=87){
+										   /*atomicAdd(&d_count_31_60_true, 1);*/
+										   int i=((states[id_to]-1)%9)%3-1;
+										   int j=((states[id_to]-1)%9)/3-1;
+										   int k=(states[id_to]-1)/9 -1;
+										   int id_from =id_to-i-j*dY-k*dZ;
+										   states[id_from]-=30;
+										   states[id_to]-=30;
+										   //atomicAdd(&d_count_31_60_true, 1);
+									   }
+								   }
+								   if(states[id_to]==200 ){
+									   /*atomicAdd(&d_count_200_true, 1);*/
+									   for (int i=-1;i<2;i++){
+										   for(int j=-1;j<2;j++){
+											   for(int k=-1;k<2;k++){
+												   int	id_from;
+												   id_from=id_to+i+j*dY+k*dZ;
+												   //if( states[id_from]<30){
+												   //	if( states[id_from]>0){
+												   //	if(!(i==0 && j==0 && k==0)){
+												   //		__shared__ double randomized_field;
+												   //		randomized_field=(field[id_from]-field[id_to])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
+												   //		if (((i=1)|(i=-1))^
+												   //			((j=1)|(j=-1))^
+												   //			((k=1)|(k=-1)))
+												   //		{   
+												   //			if(1/*30.0/dY < randomized_field*/)						
+												   //			states[id_to]=1+(i+1)+(j+1)*3+(k+1)*9;
+												   //			return 1;
+												   //		}
+												   //		/*else {
+												   //			if(30.0/dY < randomized_field)						
+												   //			states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
+												   //			
+												   //			return 1;
+												   //		}*/
+												   //	}	}
+												   //	}
+
+												   if( states[id_from]==101 || ((states[id_from]<60) &&(states[id_from]>0)))
+												   {
+													   /*atomicAdd(&d_count_101_true, 1);*/
+													   if(!(i==0 && j==0 && k==0)){
+														   double randomized_field;
+														   randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
+														   if (((i==1)||(i==-1))^
+															   ((j==1)||(j==-1))^
+															   ((k==1)||(k==-1))){   
+																   if(/*1000.0/dY*/0.90 < randomized_field){	
+																	   if( (states[id_from]<60) &&(states[id_from]>30))
+																	   {
+																		   states[id_from]-=30;
+																	   }
+																	   states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
+																	   //atomicAdd(&d_count_passed_checks[0], 1);
+																   }
+														   }
+														   else {
+															   if(/*1.0/dY */0.90< randomized_field){						
+																   states[id_to]=61+(i+1)+(j+1)*3+(k+1)*9;
+																   //atomicAdd(&d_count_passed_checks[0], 1);
+															   }
+														   }
+
+													   }
+												   }
+											   }
+										   }
+									   }
+								   }
+								   /*return 0;*/
 }
 __global__ void gr_iterate(int* states, double* field,float* uniformrand){
 	d_count_200_true=0;
-    d_count_101_true=0;
-    d_count_0_30_true=0;
-    d_count_31_60_true=0;
+	d_count_101_true=0;
+	d_count_0_30_true=0;
+	d_count_31_60_true=0;
+
 	int dY=gridDim.x+2;
 	int dZ=(gridDim.x+2)*(gridDim.y+2);
 	int id=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
+
 	/*atomicAdd(&d_count_calls, 1);*/
 	checkStructure(uniformrand[id],field,states,
-					dY,dZ,id);
-	
+		dY,dZ,id);
+
 	__syncthreads();
-	//if(states[id]=200 ){
-	//	for (int i=-1;i<2;i++){
-	//		for(int j=-1;j<2;j++){
-	//			for(int k=-1;
-	//					k<2;
-	//					k++){
-	//				if( states[id+i+j*dY+k*dZ]<100){ 
-	//						states[id]=1+(i+1)+(j+1)*3+(k+1)*9;
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
 }
 
 __global__ void d_count_report(int* a){
@@ -523,9 +527,9 @@ void strmr_strct::cu_iterate(double* field){
 	curandGenerateUniform(gen,rand_results,(_size)*(_size)*(_size));
 	cudaDeviceSynchronize();
 	gr_iterate<<<dim3(_size-2,_size-2,1),
-				dim3(_size-2,1,1)>>>
-				(_states, field, rand_results);
+		dim3(_size-2,1,1)>>>
+		(_states, field, rand_results);
 	cudaDeviceSynchronize();
-	
+
 
 }

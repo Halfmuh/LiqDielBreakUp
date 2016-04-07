@@ -33,11 +33,11 @@ class cuLaplas{
 	cudaError_t _neiman_noflow_Border(double*,int current);
 	cudaError_t _neiman_init(double*);
 	/*void setBC(BORDER_CONDITION bc){
-		switch (bc){
-			case NOFLOW:
-				this->current_bc= _neiman_noflow_Border;
-				break;
-		}
+	switch (bc){
+	case NOFLOW:
+	this->current_bc= _neiman_noflow_Border;
+	break;
+	}
 	}*/
 public:
 	FILE* errorsF;
@@ -45,11 +45,12 @@ public:
 	double* dev_fi;
 	double* dev_fi_old;
 	double* dev_fi_slice;
-	
+
 	char* dev_niv_checks;
 	char* relDev_niv_checks;
 	//double* dev_sgm;
-	//double* dev_q;
+	float* devQ;
+	float* devQOld;
 	cudaError_t cudaStatus;
 	int getTotal(){
 		return _iteration_total;
@@ -80,7 +81,7 @@ public:
 ///////////////////////////////////////////////////////////////
 class strmr_strct{
 	int _size;
-	public:
+public:
 	std::random_device seed_rng;
 	curandGenerator_t gen;
 	int* _states;

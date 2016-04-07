@@ -27,7 +27,6 @@
     <ClCompile Include="Plot_Window.cpp">
       <Filter>Interface\visualise</Filter>
     </ClCompile>
-    <ClCompile Include="structure.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Control_window.h">
@@ -39,7 +38,6 @@
     <ClInclude Include="laplas_Solution.cuh">
       <Filter>calculation</Filter>
     </ClInclude>
-    <ClInclude Include="structure.h" />
     <ClInclude Include="..\..\..\..\..\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\include\curand.h" />
   </ItemGroup>
   <ItemGroup>
