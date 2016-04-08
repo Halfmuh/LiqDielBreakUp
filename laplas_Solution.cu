@@ -20,11 +20,15 @@ __global__ void sliceKernel(double* A,double*result,const int z){
 }
 
 __global__ void laplasKernel(const double* fcu, double* fncu/*, double*sig,const double*Q*/){
-	int dY=gridDim.x+2;
-	int dZ=(gridDim.x+2)*(gridDim.y+2);
-	double sig=0;
+	int dY;
+	dY=gridDim.x*32+2;
+	int dZ;
+		dZ=(gridDim.x*32+2)*(gridDim.y+2);
+	double sig;
+		sig=0;
 	int i0;
-	i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
+	i0=1+(threadIdx.x+threadIdx.y*4+threadIdx.z*16 +blockIdx.x*32) +(1+blockIdx.y)*dY+ (1+blockIdx.z)*dZ;
+		//1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
 	int pts;
 	//pts=4*M_PI;
 	double upper_part;
@@ -44,10 +48,17 @@ __global__ void laplasKernel(const double* fcu, double* fncu/*, double*sig,const
 	//}
 	//upper_part*=pts*sig;//[i0];
 	//lower_part*=pts*sig;//[i0];
-	upper_part+=1.0/6.0 * (fcu[i0+1]+fcu[i0-1]+fcu[i0+dY]+fcu[i0-dY]+fcu[i0+dZ]+fcu[i0-dZ]);
-	lower_part+=1;
-	fncu[i0]=upper_part/lower_part;
-
+	upper_part+=fcu[i0+1];
+	upper_part+=fcu[i0-1];
+	upper_part+=fcu[i0+dY];
+	upper_part+=fcu[i0-dY];
+	upper_part+=fcu[i0+dZ];
+	upper_part+=fcu[i0-dZ];
+	upper_part*=1.0/6.0;
+	//lower_part+=1;
+	//result=upper_part/lower_part;
+	fncu[i0]=upper_part;
+	__syncthreads();
 }
 //__global__ void chargeKernel(
 __global__ void state_field_update(int* d_states,double* d_field_target){
@@ -55,7 +66,7 @@ __global__ void state_field_update(int* d_states,double* d_field_target){
 	int dZ=(gridDim.x+2)*(gridDim.y+2);
 	int i0;
 	i0=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
-	if((d_states[i0]<30)&&(d_states[i0]>0)) d_field_target[i0]=1;
+	if((d_states[i0]<60)&&(d_states[i0]>0)) d_field_target[i0]=1;
 }
 
 __global__ void yx_Borders(double* target){
@@ -71,10 +82,10 @@ __global__ void yx_Borders(double* target){
 
 __global__ void update_border(double* target){
 
-	int dY=gridDim.x;
-	int dZ=gridDim.x*blockDim.x;
+	int dY=gridDim.x*32+2;
+	int dZ=(2+gridDim.x*32)*(2+gridDim.z);
 
-	int idx=threadIdx.x+blockIdx.x*dZ; ///index of  y=const border
+	int idx=1+threadIdx.x+threadIdx.y*4+threadIdx.z*16+blockIdx.x*32+(1+blockIdx.z)*dZ; ///index of  y=const border
 	target[idx]=target[idx+dY];/*
 							   (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
 	__syncthreads();
@@ -94,7 +105,7 @@ __global__ void update_border(double* target){
 }
 
 __global__ void edge_update(double* target,int yx_idx,int dZ){
-	int idx=yx_idx+threadIdx.x*dZ;   ///lesvie, stir'ek, igla ,elektrod
+	int idx=yx_idx+(threadIdx.x+blockIdx.x*25)*dZ;   ///lesvie, stir'ek, igla ,elektrod
 	target[idx]=1;
 }
 
@@ -236,11 +247,11 @@ cudaError_t cuLaplas::cpySlice(double* host_target){
 }
 cudaError_t cuLaplas::_neiman_noflow_Border(double* target,int current){
 
-	update_border<<<_grSz,_grSz>>>(target);
+	update_border<<<dim3((_grSz-2)/32,1,(_grSz-2)),dim3(4,4,2)>>>(target);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 
-	edge_update<<<1,_grSz/2>>>(target, _grSz/2+_grSz*_grSz/2, _grSz*_grSz);
+	edge_update<<<_grSz/50,25>>>(target, _grSz/2+_grSz*_grSz/2, _grSz*_grSz);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 	return cudaStatus;
@@ -251,11 +262,11 @@ cudaError_t cuLaplas::_neiman_init(double* target){
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 	/////////
-	update_border<<<_grSz,_grSz>>>(target);
+	update_border<<<dim3((_grSz-2)/32,1,_grSz-2),dim3(4,4,2)>>>(target);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 	///////////
-	edge_update<<<1,_grSz/2>>>(target, _grSz/2+_grSz*_grSz/2, _grSz*_grSz);
+	edge_update<<<_grSz/50,25>>>(target, _grSz/2+_grSz*_grSz/2, _grSz*_grSz);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 	/////////
@@ -272,7 +283,7 @@ cudaError_t cuLaplas::iteration(void* str_str,char* epsilon_check,double eps,flo
 	cudaEventCreate(&stop);
 	cudaEventCreate(&start);
 	cudaEventRecord(start,0);
-	laplasKernel<<<dim3(_grSz-2,_grSz-2,1),dim3(_grSz-2,1,1)>>>(dev_fi_old,dev_fi/*,dev_sgm,dev_q*/);
+	laplasKernel<<<dim3((_grSz-2)/32,_grSz-2,_grSz-2),dim3(4,4,2)>>>(dev_fi_old,dev_fi/*,dev_sgm,dev_q*/);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
 
@@ -280,10 +291,10 @@ cudaError_t cuLaplas::iteration(void* str_str,char* epsilon_check,double eps,flo
 	cudaStatus=cudaDeviceSynchronize();
 
 	cudaStatus=_neiman_noflow_Border(dev_fi,current);
-
+	cudaStatus=cudaDeviceSynchronize();
 	//laplasKernel<<<dim3(_grSz-2,1,1),dim3(_grSz-2,_grSz-2,1)>>>(dev_fi,dev_fi_old/*,dev_sgm,dev_q*/);
 	//cudaStatus=cudaGetLastError();
-	//cudaStatus=cudaDeviceSynchronize();
+	
 
 	//cudaStatus=_neiman_noflow_Border(dev_fi_old,current);
 	cudaEventRecord(stop,0);

@@ -51,6 +51,7 @@ void Plot_Window::draw(){
 				else col=fl_color_average(FL_RED,FL_YELLOW,(float)arr[i+j*sz]*4-3);
 			}
 			else if(arr[i+j*sz]<30 && arr[i+j*sz]>1)col=FL_RED;
+			else if(arr[i+j*sz]<60 && arr[i+j*sz]>31)col=fl_color_average(FL_BLACK,FL_RED,(float)0.5);
 			else if(arr[i+j*sz]==101) col =FL_BLACK;
 			else col=FL_GREEN;
 			fl_rectf(x,y,dx,dy,col);
