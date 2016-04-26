@@ -1,9 +1,11 @@
 #include "laplas_Solution.cuh"
 #include <FL/Fl.H>
 #include <fstream>
+
 __global__ void setDouble1(double* target,double val){
 	target[threadIdx.x+threadIdx.y*blockDim.x]=val;
 }
+
 __global__ void setDouble2(double* target,double val){
 	target[threadIdx.x+threadIdx.y*blockDim.x+blockIdx.x*blockDim.x*blockDim.y]=/*(double)(threadIdx.x+threadIdx.y*blockDim.x+blockIdx.x*blockDim.x*blockDim.y)/(10*10*10)*/val;
 }
@@ -19,16 +21,24 @@ __global__ void sliceKernel(double* A,double*result,const int z){
 	result[threadIdx.x+blockIdx.x*dY]=a;
 }
 
+__global__ void devGetFiCentral(const double* fi, double* result, int xy_idx, int dZ){
+
+	int idxZ =(1+threadIdx.x+threadIdx.y*4+threadIdx.z*16 +blockIdx.x*32);
+	int idx=xy_idx +dZ*idxZ;
+	result[idxZ]=fi[idx];
+
+}
+
 __global__ void laplasKernel(const double* fcu, double* fncu/*, double*sig,const double*Q*/){
 	int dY;
 	dY=gridDim.x*32+2;
 	int dZ;
-		dZ=(gridDim.x*32+2)*(gridDim.y+2);
+	dZ=(gridDim.x*32+2)*(gridDim.y+2);
 	double sig;
-		sig=0;
+	sig=0;
 	int i0;
 	i0=1+(threadIdx.x+threadIdx.y*4+threadIdx.z*16 +blockIdx.x*32) +(1+blockIdx.y)*dY+ (1+blockIdx.z)*dZ;
-		//1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
+	//1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
 	int pts;
 	//pts=4*M_PI;
 	double upper_part;
@@ -60,6 +70,7 @@ __global__ void laplasKernel(const double* fcu, double* fncu/*, double*sig,const
 	fncu[i0]=upper_part;
 	__syncthreads();
 }
+
 //__global__ void chargeKernel(
 __global__ void state_field_update(int* d_states,double* d_field_target){
 	int dY=gridDim.x+2;
@@ -93,7 +104,9 @@ __global__ void update_border(double* target){
 	target[idx]=target[idx-dY];/*
 							   (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
 	__syncthreads();
-	idx=threadIdx.x*dY+blockIdx.x*dZ;//x=const (0) border
+
+
+	idx=(1+threadIdx.x+threadIdx.y*4+threadIdx.z*16+blockIdx.x*32)*dY+(1+blockIdx.z)*dZ;//x=const (0) border
 	target[idx]=target[idx+1];/*
 							  (double)(gridDim.x-blockIdx.x)/gridDim.x;*/
 	__syncthreads();
@@ -166,6 +179,50 @@ __global__ void relNivStageFinal(char*result){
 		result[idx]=(result[idx]&&result[idx+i*dY]);
 	//atomicAdd(&niv_counter3, (int) result[idx]);
 }
+
+////
+//// Max Field
+__global__ void maxFieldStageDim3(double* result,const int* stateIndex,const double* fiNew){
+	int dY=gridDim.x+2;
+	int dZ=(gridDim.x+2)*(blockDim.x+2);
+	int idx=1+threadIdx.x+(1+blockIdx.x)*dY+(1+blockIdx.y)*dZ;
+	result[idx]=0;
+	if(stateIndex[idx]<=57 && stateIndex[idx]>=31){
+
+		for(int i=-1;i<2;i+=2){
+			for(int j=-1; j<2; j+=2){
+				for(int k=-1; k<2; k+=2){
+					if(fiNew[idx]-fiNew[idx+i+j*dY+k*dZ]>result[idx]){
+						result[idx]=fiNew[idx]-fiNew[idx+i+j*dY+k*dZ];
+					}
+				}
+			}
+		}
+	}
+}
+
+__global__ void maxFieldStageDim2(double* result){
+	int dY=(gridDim.x+2);
+	int dZ=(gridDim.x+2)*(blockDim.x+2);
+	int idx=1+threadIdx.x+(1+blockIdx.x)*dY;
+	for(int i=0;i<blockDim.x;i++){
+		if(result[idx+i*dZ]>result[idx]){
+			result[idx]=result[idx+i*dZ];
+		}
+	}
+	//atomicAdd(&niv_counter2,(int)result[idx]);
+}
+
+__global__ void maxFieldStageDim1(double*result){
+	int dY=blockDim.x+2;
+	int idx=1+threadIdx.x;
+	for(int i=0;i<blockDim.x;i++){
+		if(result[idx+i*dY]>result[idx]){
+			result[idx]=result[idx+i*dY];
+		}
+	}
+}
+
 
 ////
 void cuLaplas::errReport(char* s, cudaError_t e){
@@ -280,9 +337,9 @@ cudaError_t cuLaplas::iteration(void* str_str,char* epsilon_check,double eps,flo
 	strmr_strct* a= (strmr_strct*)str_str;
 
 	static int current=0;
-	cudaEventCreate(&stop);
-	cudaEventCreate(&start);
-	cudaEventRecord(start,0);
+	//cudaEventCreate(&stop);
+	//cudaEventCreate(&start);
+	//cudaEventRecord(start,0);
 	laplasKernel<<<dim3((_grSz-2)/32,_grSz-2,_grSz-2),dim3(4,4,2)>>>(dev_fi_old,dev_fi/*,dev_sgm,dev_q*/);
 	cudaStatus=cudaGetLastError();
 	cudaStatus=cudaDeviceSynchronize();
@@ -294,12 +351,12 @@ cudaError_t cuLaplas::iteration(void* str_str,char* epsilon_check,double eps,flo
 	cudaStatus=cudaDeviceSynchronize();
 	//laplasKernel<<<dim3(_grSz-2,1,1),dim3(_grSz-2,_grSz-2,1)>>>(dev_fi,dev_fi_old/*,dev_sgm,dev_q*/);
 	//cudaStatus=cudaGetLastError();
-	
+
 
 	//cudaStatus=_neiman_noflow_Border(dev_fi_old,current);
-	cudaEventRecord(stop,0);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&lapTime,start,stop);
+	//cudaEventRecord(stop,0);
+	//cudaEventSynchronize(stop);
+	//cudaEventElapsedTime(&lapTime,start,stop);
 	*time+=lapTime;
 	current++;
 	_iteration_total++;
@@ -339,7 +396,47 @@ cuLaplas:: ~cuLaplas(){
 	cudaFree(dev_fi_old);
 	cudaFree(dev_fi_slice);
 }
+void cuLaplas::MaxSearch(const int* StateIdx){
+	double* result;
+	cudaMalloc((void**)&result,sizeof(double)*_grSz*_grSz*_grSz);
+	cudaMemset(result,0,sizeof(double)*_grSz*_grSz*_grSz);
+	maxFieldStageDim3<<<dim3(_grSz-2,_grSz-2,1),dim3(_grSz-2,1,1)>>>(result,StateIdx,dev_fi);
+	cudaDeviceSynchronize();
 
+	maxFieldStageDim2<<<dim3(_grSz-2,1,1),dim3(_grSz-2,1,1)>>>(result);
+	cudaDeviceSynchronize();
+
+	maxFieldStageDim1<<<dim3(1,1,1),dim3(_grSz-2,1,1)>>>(result);
+	cudaDeviceSynchronize();
+
+
+	double* r= new double[_grSz];
+	cudaMemcpy(r,result,sizeof(double)*_grSz,cudaMemcpyDeviceToHost);
+
+	for(int i=0;i<_grSz-2;i++){
+		if(r[1+i]>r[1]){
+			r[1]=r[1+i];
+		}
+	}
+
+	std::ofstream fileOut;
+	fileOut.precision(16);
+	fileOut.open("E_ot_t.txt",std::ofstream::app);
+	fileOut<<r[1]<<'\n';
+	fileOut.close();
+	cudaFree(result);
+
+}
+
+void cuLaplas::GetFiCentral(double*result){
+	double* resTmp;
+	cudaMalloc((void**)&resTmp , sizeof(double)*_grSz);
+	cudaMemset(resTmp,0,_grSz);
+	devGetFiCentral<<<dim3((_grSz-2)/32,1,1),dim3(4,4,2)>>>(dev_fi,resTmp,_grSz/2+_grSz*_grSz/2,_grSz*_grSz);
+	cudaDeviceSynchronize();
+	cudaMemcpy(result,resTmp,sizeof(double)*_grSz,cudaMemcpyDeviceToHost);
+	cudaFree(resTmp);
+}
 
 ///////////////////////////////////////////////////////////////////
 ///////////дальше идет код связанный с ростом стримерных каналов///
@@ -407,76 +504,68 @@ __device__ int d_count_passed_checks[2];
 __device__ void checkStructure(float rand_val,double* field,int* states,
 							   int dY,int dZ,int id_to)
 {
-	if	(states[id_to]>61){
+	if	(states[id_to]>=61){
 		if	(states[id_to]<=87){
-			/*atomicAdd(&d_count_31_60_true, 1);*/
-			int i=((states[id_to]-1)%9)%3-1;
-			int j=((states[id_to]-1)%9)/3-1;
-			int k=(states[id_to]-1)/9 -1;
-			int id_from =id_to-i-j*dY-k*dZ;
-			states[id_from]-=30;
+			//atomicAdd(&d_count_31_60_true, 1);
+			int ii=((states[id_to]-61)%9)%3-1;
+			int jj=((states[id_to]-61)%9)/3-1;
+			int kk=(states[id_to]-61)/9 -1;
+			int id_from1 =id_to+ii+jj*dY+kk*dZ;
+			if(states[id_from1]<57 && states[id_from1]>=31){
+				states[id_from1]-=30;
+			}
+			printf("%d %d %d \n",ii,jj,kk);
 			states[id_to]-=30;
 			//atomicAdd(&d_count_31_60_true, 1);
 		}
 	}
+
 	if(states[id_to]==200 ){
-		/*atomicAdd(&d_count_200_true, 1);*/
+		int tmpState;
+		int tmp_from;
+		int check =0;
+		int tmpDiag;
+		double tmpE=0;
+		//atomicAdd(&d_count_200_true, 1);
 		for (int i=-1;i<2;i++){
 			for(int j=-1;j<2;j++){
 				for(int k=-1;k<2;k++){
+
+					printf("%d %d %d \n",i,j,k);
 					int	id_from;
 					id_from=id_to+i+j*dY+k*dZ;
-					//if( states[id_from]<30){
-					//	if( states[id_from]>0){
-					//	if(!(i==0 && j==0 && k==0)){
-					//		__shared__ double randomized_field;
-					//		randomized_field=(field[id_from]-field[id_to])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
-					//		if (((i=1)|(i=-1))^
-					//			((j=1)|(j=-1))^
-					//			((k=1)|(k=-1)))
-					//		{   
-					//			if(1/*30.0/dY < randomized_field*/)						
-					//			states[id_to]=1+(i+1)+(j+1)*3+(k+1)*9;
-					//			return 1;
-					//		}
-					//		/*else {
-					//			if(30.0/dY < randomized_field)						
-					//			states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
-					//			
-					//			return 1;
-					//		}*/
-					//	}	}
-					//	}
-
-					if( states[id_from]==101 || ((states[id_from]<60) &&(states[id_from]>0)))
-					{
-						/*atomicAdd(&d_count_101_true, 1);*/
-						if(!(i==0 && j==0 && k==0)){
+					if((i!=0)||(j!=0)||(k!=0)){
+						if( states[id_from]==101 || ((states[id_from]<=57) &&(states[id_from]>0)))
+						{
+							//atomicAdd(&d_count_101_true, 1);
 							double randomized_field;
-							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val)*0.1;
-							if (((i==1)||(i==-1))^
-								((j==1)||(j==-1))^
-								((k==1)||(k==-1))){   
-									if(/*1000.0/dY*/0.90 < randomized_field){	
-										if( (states[id_from]<60) &&(states[id_from]>30))
-										{
-											states[id_from]-=30;
-										}
-										states[id_to]=31+(i+1)+(j+1)*3+(k+1)*9;
-										//atomicAdd(&d_count_passed_checks[0], 1);
-									}
-							}
-							else {
-								if(/*1.0/dY */0.90< randomized_field){						
-									states[id_to]=61+(i+1)+(j+1)*3+(k+1)*9;
+							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val);/**0.1;*/
+							if (randomized_field>tmpE){   
+								if(1){	
+									check =1;
+									tmp_from=id_from;
+									bool A=(i!=0);
+									bool B=(j!=0);
+									bool C=(k!=0);
+									tmpDiag= (int) !(A^B^C) || (A&&B&&C);
+									tmpE=randomized_field;
+									tmpState= 30*tmpDiag +31+ (1+i)+(1+j)*3+(1+k)*9;
 									//atomicAdd(&d_count_passed_checks[0], 1);
 								}
-							}
 
+							}
 						}
 					}
 				}
 			}
+		}
+
+		if (check){
+			if( (states[tmp_from]<=57) &&(states[tmp_from]>30))
+			{
+				atomicSub(states+tmp_from, 30*tmpDiag);
+			}
+			states[id_to]=tmpState;
 		}
 	}
 	/*return 0;*/
@@ -500,14 +589,11 @@ __global__ void gr_iterate(int* states, double* field,float* uniformrand){
 	__syncthreads();
 }
 
-__global__ void d_count_report(int* a){
+__global__ void d_count_report(){
 	//printf("d_count_calls: %d  \n",d_count_calls);
-	//printf("d_count_200_true: %d  \n",d_count_200_true);
-	//printf("d_count_101_true: %d  \n",d_count_101_true);
-	printf("d_count_passed_checks: %d  \n",d_count_passed_checks[0]);
-	*a=d_count_passed_checks[0];
-	/*
-	printf("d_count_31_60_true: %d  \n",d_count_31_60_true);*/
+	printf("d_count_200_true: %d  \n",d_count_200_true);
+	printf("d_count_101_true: %d  \n",d_count_101_true);
+	printf("d_count_31_60_true: %d  \n",d_count_31_60_true);
 
 	//printf("niv2: %d  \n",niv_counter2);
 	//printf("niv3: %d  \n",niv_counter3);
@@ -515,13 +601,8 @@ __global__ void d_count_report(int* a){
 }
 int h_N_grow_counter=0;
 void strmr_strct::count_report(/*std::fstream* a,*/double b){
-	int* tmp;
-	cudaMalloc((void**)&tmp,sizeof(int));
-	d_count_report<<<1,1>>>(tmp);
+	d_count_report<<<1,1>>>();
 	cudaDeviceSynchronize();
-	cudaMemcpy(&h_N_grow_counter,tmp,sizeof(int),cudaMemcpyDeviceToHost);
-	printf("h_N_grow_counter: %d  \n",h_N_grow_counter);
-	/**a<<h_N_grow_counter<<'\n';*/
 	printf("neodnorodnost: %f  \n",b);
 }
 __global__ void sliceKernel_int(int* A,int*result,const int z){
@@ -546,6 +627,5 @@ void strmr_strct::cu_iterate(double* field){
 		dim3(_size-2,1,1)>>>
 		(_states, field, rand_results);
 	cudaDeviceSynchronize();
-
 
 }

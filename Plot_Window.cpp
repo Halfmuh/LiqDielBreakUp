@@ -39,7 +39,7 @@ void Plot_Window::draw(){
 	int dy=y_max/sz ;int dx=x_max/sz ;
 	  int dx2=(dx>>1);int dy2=(dy>>1);
 	  int y=0;int j;
-	  int x=-dx2;int i;
+	  int x=0;int i;
 
 	  for(i=0;i<sz;x+=dx,i++){
 		  for(j=0,y=-dy2;j<sz;y+=dy,j++){
@@ -52,7 +52,7 @@ void Plot_Window::draw(){
 			}
 			else if(arr[i+j*sz]<30 && arr[i+j*sz]>1)col=FL_RED;
 			else if(arr[i+j*sz]<60 && arr[i+j*sz]>31)col=fl_color_average(FL_BLACK,FL_RED,(float)0.5);
-			else if(arr[i+j*sz]==101) col =FL_BLACK;
+			else if(arr[i+j*sz]==101) col =FL_WHITE;
 			else col=FL_GREEN;
 			fl_rectf(x,y,dx,dy,col);
 		  }

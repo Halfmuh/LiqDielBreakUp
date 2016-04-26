@@ -158,7 +158,7 @@ void thread_calc(void* p){
 	int nCube=ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize();
 	for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[i]=0;
 	for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[i]=0;
-	int iterCounter=80000;
+	int iterCounter=250000;
 	output=new double[nCube];
 	printf("start\n");
 	//
@@ -169,34 +169,25 @@ void thread_calc(void* p){
 	//for(;iterCounter<80000;iterCounter++)lapls->iteration(str_str,niv_check,eps,&intervalTime);
 	//cudaMemcpy(output,lapls->dev_fi,sizeof(double)*nCube,cudaMemcpyDeviceToHost);
 
-	std::stringstream fileNameStream;
-	fileNameStream << "C:/Users/student1/Desktop/FOLDER_0/New folder/fiArr"<<ctrlwnd->getGridSize()<<"size" <<iterCounter<<'i'<<eps <<"eps.dat";
-	std::string fileName =fileNameStream.str();
-	loadArray(output,nCube, fileName);
-	fileName.clear();
-	//double* outputCheck=new double[nCube];
-	//loadArray(outputCheck,nCube, fileName);
+	//std::stringstream fileNameStream;
+	//fileNameStream << "C:/Users/student1/Desktop/FOLDER_0/New folder/fiArr"<<ctrlwnd->getGridSize()<<"size" <<iterCounter<<'i'<<eps <<"eps.dat";
+	//std::string fileName =fileNameStream.str();
+	loadArray(output,nCube, "C:/Users/student1/Desktop/FOLDER_0/New folder/outEps8");
+
+	//fileName.clear();
+	//fileNameStream.clear();
+	////double* outputCheck=new double[nCube];
+	////loadArray(outputCheck,nCube, fileName);
 	printf("conv =%d\n",niv_check[0]);
 	printf("relConv =%d\n",relNiv_check[0]);
 	printf("iter =%d\n",iterCounter);
 
-	//for(int i=0;i<nCube;i++)if(output[i]!=outputCheck[i])printf("error");
-	//	fclose(pF);
-	//	std::fstream *fstream_h_N= new std::fstream;
-	//	fstream_h_N->precision(16);
-	//////output=new double[401*401*401];
-	//////std::ifstream fstream_field;
-	//////fstream_field.open("output/401/field");
-	//////for(int i=0;i<401*401*401;i++)fstream_field>>output[i];
+
 	cudaMemcpy(lapls->dev_fi,output,sizeof(double)*ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize(),
 		cudaMemcpyHostToDevice);
 	cudaMemcpy(lapls->dev_fi_old,output,sizeof(double)*ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize(),
 		cudaMemcpyHostToDevice);
-	//////lapls->cpySlice(pltwnd->arr);
-	//////str_str->cpySlice(transfer_storage);
-	//////fstream_field.close();
 
-	//////Fl::awake(pltwnd);
 
 	double k=0;
 
@@ -208,8 +199,8 @@ void thread_calc(void* p){
 	-output[
 		ctrlwnd->getGridSize()/2
 			+ctrlwnd->getGridSize()  *(ctrlwnd->getGridSize()/2)
-			+ctrlwnd->getGridSize()  *ctrlwnd->getGridSize()  *(2  +ctrlwnd->getGridSize()  /2)]
-	)/2 *401;
+			+ctrlwnd->getGridSize()  *ctrlwnd->getGridSize()  *(1  +ctrlwnd->getGridSize()  /2)]
+	)/1 *450;
 
 	str_str->count_report(/*fstream_h_N,*/k);
 	lapls->cpySlice(pltwnd->arr);
@@ -217,12 +208,14 @@ void thread_calc(void* p){
 
 	delete[] output;
 	float globalLapTime=0;
-	int iterstep=1000;
-	eps *=0.1;
+	int iterstep=100;
 	relEps=eps;
+
+
+
+	for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[0]*=niv_check[i];
+	for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[0]*=relNiv_check[i];
 	while(1){
-		for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[0]*=niv_check[i];
-		for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[0]*=relNiv_check[i];
 
 		printf("conv =%d\n",niv_check[0]);
 		printf("relConv =%d\n",relNiv_check[0]);
@@ -242,19 +235,33 @@ void thread_calc(void* p){
 			if(niv_check[0]&&relNiv_check[0]){
 				output=new double[nCube];
 
-				fileNameStream << "C:/Users/student1/Desktop/FOLDER_0/New folder/fiArr"<<ctrlwnd->getGridSize()<<"size" <<iterCounter<<'i'<<eps <<"eps.dat";
+				//fileNameStream << "C:/Users/student1/Desktop/FOLDER_0/New folder/fiArr"<<ctrlwnd->getGridSize()<<"size" <<iterCounter/1000<<'i'<<eps <<"eps.dat";
 				cudaMemcpy(output,lapls->dev_fi,sizeof(double)*nCube,cudaMemcpyDeviceToHost);
-				std::string fileName =fileNameStream.str();
-				saveArray(output,nCube, fileName);
-				fileName.clear();
+				//fileName =fileNameStream.str();
+
+				//saveArray(output,nCube, "outEps3");
+
+				//fileNameStream.clear();
+				//fileName.clear();
 				delete[] output;
-				eps *=0.1;
-				relEps=eps;				
-				//str_str->cu_iterate(lapls->dev_fi);
+				double* graphFi= new double[ctrlwnd->getGridSize()];
+				lapls->GetFiCentral(graphFi);
+				graphFi[0]=1;
+				std::ofstream FiDat;
+				FiDat.open("FiCentral.Dat",std::ofstream::out);
+				FiDat.precision(16);
+				for(int i=0;i<ctrlwnd->getGridSize();i++){
+					FiDat<<graphFi[i]<<'\n';
+				}
+				FiDat.close();
+				//eps *=0.1;
+				//relEps=eps;
+				/*lapls->MaxSearch(str_str->_states);
+				str_str->cu_iterate(lapls->dev_fi);*/
 				str_str->count_report(/*fstream_h_N,*/k);
-				lapls->cpySlice(pltwnd->arr);
-				str_str->cpySlice(transfer_storage);
 			}
+			lapls->cpySlice(pltwnd->arr);
+			str_str->cpySlice(transfer_storage);
 
 
 			//Fl::lock();

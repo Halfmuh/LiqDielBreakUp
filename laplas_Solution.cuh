@@ -45,7 +45,7 @@ public:
 	double* dev_fi;
 	double* dev_fi_old;
 	double* dev_fi_slice;
-
+	
 	char* dev_niv_checks;
 	char* relDev_niv_checks;
 	//double* dev_sgm;
@@ -69,6 +69,8 @@ public:
 	cudaError_t iteration(void* str_str,char* epsilon_check,double eps,float* time);
 	void convergence(char* epsilon_check, double eps);
 	void RelConvergence(char* epsilon_check, double eps);
+	void MaxSearch(const int* StateIdx);
+	void GetFiCentral(double* result);
 	void swapFi(){
 		double* tmp= dev_fi;
 		dev_fi=dev_fi_old;
