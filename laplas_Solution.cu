@@ -331,9 +331,9 @@ cudaError_t cuLaplas::_neiman_init(double* target){
 }
 cudaError_t cuLaplas::iteration(void* str_str,char* epsilon_check,double eps,float* time){
 
-	float lapTime=0;
-	cudaEvent_t start;
-	cudaEvent_t stop;
+	float lapTime=0;/*
+					cudaEvent_t start;
+					cudaEvent_t stop;*/
 	strmr_strct* a= (strmr_strct*)str_str;
 
 	static int current=0;
@@ -494,107 +494,173 @@ __global__ void edgeInitStruct(int*A,int xy_idx,int dZ){
 }
 
 ///объ€вл€ем  счетчики
-__device__ int d_count_200_true;
-__device__ int d_count_101_true;
-__device__ int d_count_0_30_true;
-__device__ int d_count_31_60_true;
-__device__ int d_count_calls;
+__device__ int d_count_200_true=0;
+__device__ int d_count_101_true=0;
+__device__ int d_count_0_30_true=0;
+__device__ int d_count_31_60_true=0;
+__device__ int d_count_calls=0;
 __device__ int d_count_passed_checks[2];
 
-__device__ void checkStructure(float rand_val,double* field,int* states,
-							   int dY,int dZ,int id_to)
+//__device__ void checkStructure(float rand_val,double* field,int* states,
+//							   int dY,int dZ,int id_to)
+//{
+//	if	(states[id_to]>=61){
+//		if	(states[id_to]<=87){
+//			//atomicAdd(&d_count_31_60_true, 1);
+//			int ii=((states[id_to]-61)%9)%3-1;
+//			int jj=((states[id_to]-61)%9)/3-1;
+//			int kk=(states[id_to]-61)/9 -1;
+//			int id_from1 =id_to+ii+jj*dY+kk*dZ;
+//			if(states[id_from1]<57 && states[id_from1]>=31){
+//				states[id_from1]-=30;
+//			}
+//			printf("%d %d %d \n",ii,jj,kk);
+//			states[id_to]-=30;
+//			//atomicAdd(&d_count_31_60_true, 1);
+//		}
+//	}
+//
+//	if(states[id_to]==200 ){
+//		int tmpState;
+//		int tmp_from;
+//		int check =0;
+//		int tmpDiag;
+//		double tmpE=0;
+//		//atomicAdd(&d_count_200_true, 1);
+//		for (int i=-1;i<2;i++){
+//			for(int j=-1;j<2;j++){
+//				for(int k=-1;k<2;k++){
+//
+//					printf("%d %d %d \n",i,j,k);
+//					int	id_from;
+//					id_from=id_to+i+j*dY+k*dZ;
+//					if((i!=0)||(j!=0)||(k!=0)){
+//						if( states[id_from]==101 || ((states[id_from]<=57) &&(states[id_from]>0)))
+//						{
+//							//atomicAdd(&d_count_101_true, 1);
+//							double randomized_field;
+//							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val);/**0.1;*/
+//							if (randomized_field>tmpE){   
+//								if(1){	
+//									check =1;
+//									tmp_from=id_from;
+//									bool A=(i!=0);
+//									bool B=(j!=0);
+//									bool C=(k!=0);
+//									tmpDiag= (int) !(A^B^C) || (A&&B&&C);
+//									tmpE=randomized_field;
+//									tmpState= 30*tmpDiag +31+ (1+i)+(1+j)*3+(1+k)*9;
+//									//atomicAdd(&d_count_passed_checks[0], 1);
+//								}
+//
+//							}
+//						}
+//					}
+//				}
+//			}
+//		}
+//
+//		if (check){
+//			if( (states[tmp_from]<=57) &&(states[tmp_from]>30))
+//			{
+//				atomicSub(states+tmp_from, 30*tmpDiag);
+//			}
+//			states[id_to]=tmpState;
+//		}
+//	}
+//	/*return 0;*/
+//}
+__device__ int checkStructure(float rand_val,double* field,int* states,int id_to)
 {
-	if	(states[id_to]>=61){
-		if	(states[id_to]<=87){
-			//atomicAdd(&d_count_31_60_true, 1);
-			int ii=((states[id_to]-61)%9)%3-1;
-			int jj=((states[id_to]-61)%9)/3-1;
-			int kk=(states[id_to]-61)/9 -1;
-			int id_from1 =id_to+ii+jj*dY+kk*dZ;
-			if(states[id_from1]<57 && states[id_from1]>=31){
-				states[id_from1]-=30;
-			}
-			printf("%d %d %d \n",ii,jj,kk);
-			states[id_to]-=30;
-			//atomicAdd(&d_count_31_60_true, 1);
-		}
-	}
-
+	d_count_passed_checks[0]=0;
+	d_count_passed_checks[1]=0;
 	if(states[id_to]==200 ){
-		int tmpState;
-		int tmp_from;
+		atomicAdd(&d_count_200_true, 1);
+		/*int tmpState=states[id_to];*/
 		int check =0;
-		int tmpDiag;
+		int tmpDiag1=0;
+		int tmpDiag2=0;
 		double tmpE=0;
-		//atomicAdd(&d_count_200_true, 1);
+		double randomized_field=0;
 		for (int i=-1;i<2;i++){
 			for(int j=-1;j<2;j++){
 				for(int k=-1;k<2;k++){
-
-					printf("%d %d %d \n",i,j,k);
 					int	id_from;
-					id_from=id_to+i+j*dY+k*dZ;
-					if((i!=0)||(j!=0)||(k!=0)){
-						if( states[id_from]==101 || ((states[id_from]<=57) &&(states[id_from]>0)))
-						{
-							//atomicAdd(&d_count_101_true, 1);
-							double randomized_field;
-							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val);/**0.1;*/
-							if (randomized_field>tmpE){   
-								if(1){	
-									check =1;
-									tmp_from=id_from;
-									bool A=(i!=0);
-									bool B=(j!=0);
-									bool C=(k!=0);
-									tmpDiag= (int) !(A^B^C) || (A&&B&&C);
-									tmpE=randomized_field;
-									tmpState= 30*tmpDiag +31+ (1+i)+(1+j)*3+(1+k)*9;
-									//atomicAdd(&d_count_passed_checks[0], 1);
-								}
+					id_from=id_to+i+j*18+k*18*3;
 
-							}
+					if( states[id_from]==101 || ((states[id_from]<30) && (states[id_from]>0)))
+					{
+						//atomicAdd(&d_count_101_true, 1);
+						if(!(i==0 && j==0 && k==0)){
+							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val)/**0.1*/;
+							//if(/*1000.0/dY*/0 < randomized_field){
+
+								//atomicAdd(&d_count_passed_checks[1], 1);
+								//if(randomized_field>tmpE){
+									//curandState tmprand; 
+									//curand_init((long long)(rand_val*1E16),id_from,(i+1)+(j+1)*3+(k+1)*9,&tmprand);
+
+									//tmpDiag1=int(!(i!=0)^(i!=0)^(j!=0))/*&&(curand_uniform_double(&tmprand)>0.4142)*/;
+									//tmpDiag2=int((i!=0)&&(j!=0)&&(k!=0)) /*&& (curand_uniform_double(&tmprand)>0.1547)*/;
+
+									//states[id_to]=31*(tmpDiag1+tmpDiag2)+(i+1)+(j+1)*3+(k+1)*9;
+									//tmpE=randomized_field;
+									atomicAdd(&d_count_passed_checks[0], 1);
+																check=1;
+								//}
+							//}
 						}
+
 					}
 				}
 			}
 		}
 
-		if (check){
-			if( (states[tmp_from]<=57) &&(states[tmp_from]>30))
-			{
-				atomicSub(states+tmp_from, 30*tmpDiag);
-			}
-			states[id_to]=tmpState;
-		}
+		return 0;
 	}
-	/*return 0;*/
+	return 0;
 }
 
-
 __global__ void gr_iterate(int* states, double* field,float* uniformrand){
-	d_count_200_true=0;
-	d_count_101_true=0;
-	d_count_0_30_true=0;
-	d_count_31_60_true=0;
 
-	int dY=gridDim.x+2;
-	int dZ=(gridDim.x+2)*(gridDim.y+2);
-	int id=1+blockIdx.x +(blockIdx.y +1)*dY+(threadIdx.x +1)*dZ;
-
-	/*atomicAdd(&d_count_calls, 1);*/
-	checkStructure(uniformrand[id],field,states,
-		dY,dZ,id);
-
+	int dY=gridDim.x*blockDim.x*blockDim.y+2;
+	int dZ=dY*(gridDim.y+2);
+	int id=1+threadIdx.x+threadIdx.y*4+blockIdx.x*16 +(blockIdx.y +1)*dY+(1+blockIdx.z)*dZ;
+	__shared__ int tempStructure[3*3*18];
+	__shared__ double tempFi[3*3*18];
+	for(int i=-1;i<2;i++){
+		for(int j=-1;j<2;j++){
+			int dIdxTemp=1+threadIdx.x+threadIdx.y*4 + (1+i)*18+(1+j)*18*3;
+			int dIdx=id+i*dY+j*dZ;
+			tempStructure[dIdxTemp]=states[dIdx];
+			tempFi[dIdxTemp]=states[dIdx];
+			if(threadIdx.x+threadIdx.y*4 ==0){
+				tempStructure[dIdxTemp-1]=states[dIdx-1];
+				tempFi[dIdxTemp-1]=states[dIdx-1];
+			}
+			if(threadIdx.x+threadIdx.y*4 ==blockDim.x*blockDim.y-1){
+				tempStructure[dIdxTemp+1]=states[dIdx+1];
+				tempFi[dIdxTemp+1]=states[dIdx+1];
+			}
+		}
+	}
+	//__syncthreads();
+	///*atomicAdd(&d_count_calls, 1);*/
+	if (checkStructure(uniformrand[id],tempFi,tempStructure,1+threadIdx.x+threadIdx.y*4+18+3*18))
+	{
+		states[id]=tempStructure[1+threadIdx.x+threadIdx.y*4+blockDim.x*blockDim.y+3*blockDim.x*blockDim.y];
+	}
 	__syncthreads();
+
 }
 
 __global__ void d_count_report(){
-	//printf("d_count_calls: %d  \n",d_count_calls);
+	printf("d_count_calls: %d  \n",d_count_calls);
 	printf("d_count_200_true: %d  \n",d_count_200_true);
 	printf("d_count_101_true: %d  \n",d_count_101_true);
 	printf("d_count_31_60_true: %d  \n",d_count_31_60_true);
-
+	printf("d_count_passed_checks[0]: %d  \n",d_count_passed_checks[0]);
+	printf("d_count_passed_checks[1]: %d  \n",d_count_passed_checks[1]);
 	//printf("niv2: %d  \n",niv_counter2);
 	//printf("niv3: %d  \n",niv_counter3);
 
@@ -618,14 +684,22 @@ __global__ void sliceKernel_int(int* A,int*result,const int z){
 	}
 	result[threadIdx.x+blockIdx.x*dY]=a;
 }
-
+__global__ void StructureIsDelayed(int*states){
+	int idTo=1+threadIdx.x+threadIdx.y*4+blockIdx.x*16+(blockIdx.y +1)*(gridDim.x*blockDim.x*blockDim.y+2)+(1+blockIdx.z)*(gridDim.x*blockDim.x*blockDim.y+2)*(gridDim.y+2);
+	if((states[idTo]<=60) &&(states[idTo]>=31)){
+		states[idTo]-=30;
+	}
+}
 void strmr_strct::cu_iterate(double* field){
 	curandSetPseudoRandomGeneratorSeed(gen,seed_rng());
 	curandGenerateUniform(gen,rand_results,(_size)*(_size)*(_size));
 	cudaDeviceSynchronize();
-	gr_iterate<<<dim3(_size-2,_size-2,1),
-		dim3(_size-2,1,1)>>>
+	gr_iterate<<<dim3((_size-2)/16,_size-2,_size-2),dim3(4,4,1)>>>
 		(_states, field, rand_results);
 	cudaDeviceSynchronize();
-
+	//StructureIsDelayed<<<dim3((_size-2)/16,_size-2,_size-2),dim3(4,4,1)>>>
+	//	(_states);
+	cudaDeviceSynchronize();
 }
+
+//__device__ int StructureIsGrowing(

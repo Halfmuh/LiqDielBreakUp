@@ -2,6 +2,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "curand.h"
+#include "curand_kernel.h"
 #include <random>
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -126,9 +127,8 @@ __global__ void edge_update(double* target,
 __global__ void sliceKernel_int(int* A,int*result,const int z);
 __global__ void initStates(int* A);
 __global__ void edgeInitStruct(int*A,int xy_idx,int dZ);
-__device__ int checkStructure(float rand_val,double* field,int states,
-							  int dY,int dZ,int id_to);
+__device__ int checkStructure(float rand_val,double* field,int* states,int id_to);
 __device__ int strmr_update();
-__global__ void gr_iterate(int* satates, double* field,float* uniformrand);
+__global__ void gr_iterate(int* states, double* field,float* uniformrand);
 
 __global__ void strmr_growth();

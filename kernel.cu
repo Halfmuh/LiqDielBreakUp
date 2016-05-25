@@ -151,8 +151,8 @@ void stop_cb(Fl_Widget *w,void* data){
 
 void thread_calc(void* p){
 	cudaProfilerStart();
-	double eps=.00001;
-	double relEps=.00001;
+	double eps=.000001;
+	double relEps=.000001;
 	char* niv_check=new char[ctrlwnd->getGridSize()];
 	char* relNiv_check=new char[ctrlwnd->getGridSize()];
 	int nCube=ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize();
@@ -200,7 +200,7 @@ void thread_calc(void* p){
 		ctrlwnd->getGridSize()/2
 			+ctrlwnd->getGridSize()  *(ctrlwnd->getGridSize()/2)
 			+ctrlwnd->getGridSize()  *ctrlwnd->getGridSize()  *(1  +ctrlwnd->getGridSize()  /2)]
-	)/1 *450;
+	) *ctrlwnd->getGridSize();
 
 	str_str->count_report(/*fstream_h_N,*/k);
 	lapls->cpySlice(pltwnd->arr);
@@ -208,7 +208,7 @@ void thread_calc(void* p){
 
 	delete[] output;
 	float globalLapTime=0;
-	int iterstep=100;
+	int iterstep=10;
 	relEps=eps;
 
 
@@ -233,31 +233,8 @@ void thread_calc(void* p){
 			for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[0]*=relNiv_check[i];
 
 			if(niv_check[0]&&relNiv_check[0]){
-				output=new double[nCube];
-
-				//fileNameStream << "C:/Users/student1/Desktop/FOLDER_0/New folder/fiArr"<<ctrlwnd->getGridSize()<<"size" <<iterCounter/1000<<'i'<<eps <<"eps.dat";
-				cudaMemcpy(output,lapls->dev_fi,sizeof(double)*nCube,cudaMemcpyDeviceToHost);
-				//fileName =fileNameStream.str();
-
-				//saveArray(output,nCube, "outEps3");
-
-				//fileNameStream.clear();
-				//fileName.clear();
-				delete[] output;
-				double* graphFi= new double[ctrlwnd->getGridSize()];
-				lapls->GetFiCentral(graphFi);
-				graphFi[0]=1;
-				std::ofstream FiDat;
-				FiDat.open("FiCentral.Dat",std::ofstream::out);
-				FiDat.precision(16);
-				for(int i=0;i<ctrlwnd->getGridSize();i++){
-					FiDat<<graphFi[i]<<'\n';
-				}
-				FiDat.close();
-				//eps *=0.1;
-				//relEps=eps;
-				/*lapls->MaxSearch(str_str->_states);
-				str_str->cu_iterate(lapls->dev_fi);*/
+				//lapls->MaxSearch(str_str->_states);
+				str_str->cu_iterate(lapls->dev_fi);
 				str_str->count_report(/*fstream_h_N,*/k);
 			}
 			lapls->cpySlice(pltwnd->arr);
