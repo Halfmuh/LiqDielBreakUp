@@ -588,8 +588,8 @@ __device__ int checkStructure(float rand_val,double* field,int* states,int id_to
 					int	id_from;
 					id_from=id_to+i+j*18+k*18*3;
 
-					if( states[id_from]==101 || ((states[id_from]<30) && (states[id_from]>0)))
-					{
+					//if( states[id_from]==101 || ((states[id_from]<30) && (states[id_from]>0)))
+					//{
 						//atomicAdd(&d_count_101_true, 1);
 						if(!(i==0 && j==0 && k==0)){
 							randomized_field=abs(field[id_to]-field[id_from])/sqrt((double)i*i+j*j+k*k)-log(rand_val)/**0.1*/;
@@ -609,7 +609,7 @@ __device__ int checkStructure(float rand_val,double* field,int* states,int id_to
 																check=1;
 								//}
 							//}
-						}
+						//}
 
 					}
 				}
@@ -618,6 +618,7 @@ __device__ int checkStructure(float rand_val,double* field,int* states,int id_to
 
 		return 0;
 	}
+	__syncthreads();
 	return 0;
 }
 
@@ -628,23 +629,23 @@ __global__ void gr_iterate(int* states, double* field,float* uniformrand){
 	int id=1+threadIdx.x+threadIdx.y*4+blockIdx.x*16 +(blockIdx.y +1)*dY+(1+blockIdx.z)*dZ;
 	__shared__ int tempStructure[3*3*18];
 	__shared__ double tempFi[3*3*18];
-	for(int i=-1;i<2;i++){
-		for(int j=-1;j<2;j++){
-			int dIdxTemp=1+threadIdx.x+threadIdx.y*4 + (1+i)*18+(1+j)*18*3;
-			int dIdx=id+i*dY+j*dZ;
+	for(int i=0;i<3;i++){
+		for(int j=0;j<3;j++){
+			int dIdxTemp=1+threadIdx.x+threadIdx.y*4 + i*18+j*18*3;
+			int dIdx=id+(i-1)*dY+(j-1)*dZ;
 			tempStructure[dIdxTemp]=states[dIdx];
-			tempFi[dIdxTemp]=states[dIdx];
+			tempFi[dIdxTemp]=field[dIdx];
 			if(threadIdx.x+threadIdx.y*4 ==0){
 				tempStructure[dIdxTemp-1]=states[dIdx-1];
-				tempFi[dIdxTemp-1]=states[dIdx-1];
+				tempFi[dIdxTemp-1]=field[dIdx-1];
 			}
 			if(threadIdx.x+threadIdx.y*4 ==blockDim.x*blockDim.y-1){
 				tempStructure[dIdxTemp+1]=states[dIdx+1];
-				tempFi[dIdxTemp+1]=states[dIdx+1];
+				tempFi[dIdxTemp+1]=field[dIdx+1];
 			}
 		}
 	}
-	//__syncthreads();
+	__syncthreads();
 	///*atomicAdd(&d_count_calls, 1);*/
 	if (checkStructure(uniformrand[id],tempFi,tempStructure,1+threadIdx.x+threadIdx.y*4+18+3*18))
 	{
