@@ -102,8 +102,8 @@ void start_cb(Fl_Widget *w,void* data){
 	{
 		tmp->calc_state =1;
 		///создадим оконце
-		pltwnd= new Plot_Window(900,900,tmp,"Plot");
-		pltwnd2= new Plot_Window(900,900,tmp,"Plot2");
+		pltwnd= new Plot_Window(ctrlwnd->getGridSize()*2,ctrlwnd->getGridSize()*2,tmp,"Plot");
+		pltwnd2= new Plot_Window(ctrlwnd->getGridSize()*2,ctrlwnd->getGridSize()*2,tmp,"Plot2");
 		///и заведм массивы
 		lapls=new cuLaplas(pltwnd->getGridSize(),pltwnd->z,100,NOFLOW);
 		str_str=new strmr_strct(lapls);
@@ -158,7 +158,7 @@ void thread_calc(void* p){
 	int nCube=ctrlwnd->getGridSize()*ctrlwnd->getGridSize()*ctrlwnd->getGridSize();
 	for(int i=0;i<ctrlwnd->getGridSize();i++)niv_check[i]=0;
 	for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[i]=0;
-	int iterCounter=250000;
+	int iterCounter=0;
 	output=new double[nCube];
 	printf("start\n");
 	//
