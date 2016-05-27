@@ -233,7 +233,7 @@ void thread_calc(void* p){
 			for(int i=0;i<ctrlwnd->getGridSize();i++)relNiv_check[0]*=relNiv_check[i];
 
 			if(niv_check[0]&&relNiv_check[0]){
-				//lapls->MaxSearch(str_str->_states);
+				lapls->MaxSearch(str_str->_states);
 				str_str->cu_iterate(lapls->dev_fi);
 				//str_str->count_report(/*fstream_h_N,*/k);
 			}
